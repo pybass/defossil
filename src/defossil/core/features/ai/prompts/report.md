@@ -56,6 +56,9 @@ still needs work, keep it; otherwise pick a new one.
 Rules:
 
 - Quote only real fragments from the data; never invent sentences and attribute them to the student.
+- Write every wrong -> right example as <wrong>original</wrong><right>corrected</right> on one line: plain text
+  inside the tags, no markdown or backticks around the fragments. The UI renders each pair as a compact word-level
+  diff that highlights exactly what changed, expandable to both full versions — untagged pairs stay plain text.
 - Write in simple English.
 - The messages are terse chat: capitalization, punctuation and tone are off-limits.
 - Respond with plain markdown only, no preamble and no closing remarks.

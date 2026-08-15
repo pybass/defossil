@@ -1,5 +1,6 @@
 """The Jinja environment the page routers render through."""
 
+import re
 from datetime import UTC, date, datetime
 from difflib import SequenceMatcher
 from importlib.metadata import version
@@ -57,10 +58,29 @@ def _word_diff(original: str, correction: str) -> Markup:
     return Markup(" ").join(parts)
 
 
+# No DOTALL: pairs are one line by prompt contract, and a malformed pair must not swallow lines up to the next one.
+_CORRECTION_RE = re.compile(r"<wrong>(.*?)</wrong>\s*<right>(.*?)</right>")
+
+
+def _correction_tags(text: str) -> str:
+    """Replace <wrong>/<right> pairs in report markdown with the collapsed word-diff widget the corrections page uses."""
+
+    def widget(m: re.Match[str]) -> str:
+        """One pair as a details widget, on one line — a line break would make marked close the surrounding list item."""
+        wrong, right = m[1].strip(), m[2].strip()
+        return (
+            f'<details class="diff"><summary>{_word_diff(wrong, right)}</summary>'
+            f'<div class="was">{escape(wrong)}</div><div class="now">{escape(right)}</div></details>'
+        )
+
+    return _CORRECTION_RE.sub(widget, text)
+
+
 templates.env.filters["dt"] = _format_dt
 templates.env.filters["dur"] = _format_duration
 templates.env.filters["ago"] = _format_ago
 templates.env.filters["hm"] = _format_hm
 templates.env.filters["day"] = _local_date
 templates.env.filters["worddiff"] = _word_diff
+templates.env.filters["correctiontags"] = _correction_tags
 templates.env.globals["version"] = version("defossil")

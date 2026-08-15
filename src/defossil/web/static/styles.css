@@ -145,6 +145,9 @@ del, ins { font-family: var(--mono); font-size: 0.9em; padding: 0.05rem 0.25rem;
 del { background: var(--del-bg); color: var(--del-ink); }
 ins { background: var(--ins-bg); color: var(--ins-ink); text-decoration: none; }
 
+/* Correction widgets in reports (templating.py correctiontags): inline-block so a collapsed one flows in a bullet line. */
+.markdown details.diff { display: inline-block; vertical-align: top; }
+
 /* Glossary terms in reports: dotted underline, click for a plain-English popup (static/glossary.js). */
 .term { text-decoration: underline dotted var(--line-strong); text-decoration-thickness: 1.5px; text-underline-offset: 0.25em; cursor: help; }
 .term:hover, .term:focus { text-decoration-color: var(--pen); outline: none; }
