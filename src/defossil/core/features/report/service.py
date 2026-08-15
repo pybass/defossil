@@ -8,8 +8,8 @@ from defossil.core.features.report.models import Report
 from defossil.core.service import Service
 
 # The whole input must stay under ~20-30k words: repeat-counting degrades long before the model's context limit.
-# Corrections need no cap — the window is a
-# fixed count — but a window's message span is unbounded (clean stretches add messages without corrections).
+# Corrections need no cap — the window is a fixed count — but a window's message span is unbounded
+# (clean stretches add messages without corrections).
 # Clean messages are input on purpose: the report judges style the review never flagged, message-wide and across
 # messages, which no correction fragment can show.
 MESSAGES_CAP = 300

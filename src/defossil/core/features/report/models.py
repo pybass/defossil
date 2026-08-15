@@ -31,13 +31,4 @@ class Report(BaseModel):
     @classmethod
     def from_row(cls, row: sqlite3.Row) -> Self:
         """Rebuild a report from its row in the `reports` table."""
-        return cls(
-            id=row["id"],
-            created_at=datetime.fromisoformat(row["created_at"]),
-            first_message_id=row["first_message_id"],
-            last_message_id=row["last_message_id"],
-            first_correction_id=row["first_correction_id"],
-            last_correction_id=row["last_correction_id"],
-            text=row["text"],
-            acknowledged=bool(row["acknowledged"]),
-        )
+        return cls.model_validate(dict(row))

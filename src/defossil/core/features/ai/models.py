@@ -46,18 +46,4 @@ class AiCall(BaseModel):
     @classmethod
     def from_row(cls, row: sqlite3.Row) -> Self:
         """Rebuild a call from its row in the `ai_calls` table."""
-        return cls(
-            id=row["id"],
-            created_at=datetime.fromisoformat(row["created_at"]),
-            category=PromptCategory(row["category"]),
-            backend=row["backend"],
-            model=row["model"],
-            effort=row["effort"],
-            prompt=row["prompt"],
-            reply=row["reply"],
-            input_tokens=row["input_tokens"],
-            output_tokens=row["output_tokens"],
-            cost_usd=row["cost_usd"],
-            duration_ms=row["duration_ms"],
-            error=row["error"],
-        )
+        return cls.model_validate(dict(row))

@@ -169,14 +169,4 @@ class Correction(BaseModel):
     @classmethod
     def from_row(cls, row: sqlite3.Row) -> Self:
         """Rebuild a correction from its row; the query must join the message's typed_at in."""
-        return cls(
-            id=row["id"],
-            message_id=row["message_id"],
-            category=row["category"],
-            original=row["original"],
-            corrected=row["corrected"],
-            explanation=row["explanation"],
-            extra_explanation=row["extra_explanation"],
-            typed_at=datetime.fromisoformat(row["typed_at"]),
-            acknowledged=bool(row["acknowledged"]),
-        )
+        return cls.model_validate(dict(row))

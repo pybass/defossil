@@ -127,7 +127,6 @@ tr.day td { border-bottom: none; padding: 1.2rem 0.6rem 0.15rem; font-family: va
 .meta-line summary { cursor: pointer; }
 .meta-line div { margin-top: 0.2rem; }
 
-.panel { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1rem 0; }
 .pager { margin: 1rem 0; }
 
 form.inline { display: inline; }
@@ -214,7 +213,6 @@ tr.acked .tag:hover, tr.acked .tag:focus { opacity: 1; }  /* the popover must no
 .cat:hover .cat-pop, .cat:focus .cat-pop { display: block; }
 .cat-pop .cat-desc { display: block; }
 .cat-pop .cat-example { display: block; margin-top: 0.3rem; font-family: var(--mono); font-size: 0.9em; color: var(--muted); }
-td.actions { white-space: nowrap; }
 
 /* Corrections list: tick and time over category in one narrow cell; correction and why split the rest evenly. */
 th.when { width: 1%; }  /* shrink to the nowrap content below; the halves split the rest */

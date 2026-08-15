@@ -28,9 +28,8 @@
   <tr>
     <td class="muted"><a href="/messages/{{ r.id }}">{{ r.typed_at|hm }}</a></td>
     <td class="meta"><span class="tag">{{ r.source }}</span> <span class="badge {{ r.status }}">{{ r.status }}</span>
-      {% if r.status == 'reviewed' %}{% set n = correction_counts.get(r.id) %}
-      {% if n %}<span class="badge">{{ n }} correction{{ 's' if n != 1 }}</span>{% endif %}
-      {% endif %}</td>
+      {% set n = correction_counts.get(r.id) %}
+      {% if n %}<span class="badge">{{ n }} correction{{ 's' if n != 1 }}</span>{% endif %}</td>
     <td>{{ r.text|truncate(500) }}</td>
   </tr>
   {% endfor %}
