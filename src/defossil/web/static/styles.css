@@ -145,6 +145,27 @@ del, ins { font-family: var(--mono); font-size: 0.9em; padding: 0.05rem 0.25rem;
 del { background: var(--del-bg); color: var(--del-ink); }
 ins { background: var(--ins-bg); color: var(--ins-ink); text-decoration: none; }
 
+/* Glossary terms in reports: dotted underline, click for a plain-English popup (static/glossary.js). */
+.term { text-decoration: underline dotted var(--line-strong); text-decoration-thickness: 1.5px; text-underline-offset: 0.25em; cursor: help; }
+.term:hover, .term:focus { text-decoration-color: var(--pen); outline: none; }
+.term-pop {
+  position: absolute;
+  z-index: 10;
+  width: max-content;
+  max-width: 24rem;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  padding: 0.5rem 0.7rem;
+  box-shadow: 0 2px 10px rgba(33, 32, 28, 0.12);
+}
+.term-pop .term-name { display: block; font-family: var(--mono); font-size: 0.72rem; color: var(--muted); margin-bottom: 0.15rem; }
+.term-pop .term-def { display: block; }
+.term-pop .term-example { display: block; margin-top: 0.3rem; font-family: var(--mono); font-size: 0.9em; color: var(--muted); }
+
 /* Correction word diff: the summary is the merged phrase; expanding shows both plain versions. */
 details.diff summary { list-style: none; cursor: pointer; font-family: var(--mono); font-size: 0.9em; }
 details.diff summary::-webkit-details-marker { display: none; }
