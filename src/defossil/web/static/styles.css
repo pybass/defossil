@@ -126,6 +126,7 @@ tr.day td { border-bottom: none; padding: 1.2rem 0.6rem 0.15rem; font-family: va
 .meta-line { font-family: var(--mono); font-size: 0.78rem; color: var(--muted); overflow-wrap: anywhere; margin: 0.2rem 0 1rem; }
 .meta-line summary { cursor: pointer; }
 .meta-line div { margin-top: 0.2rem; }
+.meta-line pre { white-space: pre; overflow-x: auto; }  /* raw report markdown: real line breaks only, no soft wrap */
 
 .pager { margin: 1rem 0; }
 

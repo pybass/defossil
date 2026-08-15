@@ -8,6 +8,10 @@
     title="{{ 'undo' if r.acknowledged else 'mark this report as read' }}"
     onclick="toggleAcknowledged(this, {{ r.id }})">{{ '✓ read' if r.acknowledged else 'got it' }}</button></p>
 <div id="report" class="markdown"></div>
+<details class="meta-line">
+  <summary>raw markdown — the report as stored, for debugging</summary>
+  <pre>{{ r.text }}</pre>
+</details>
 <script src="/static/marked.min.js"></script>
 <script src="/static/purify.min.js"></script>
 <script>
