@@ -1,0 +1,31 @@
+{% extends "system_base.html" %}
+{% block title %}ai call — defossil{% endblock %}
+{% block system_content %}
+<h1>AI call #{{ call.id }} {% if call.error %}<span class="badge error">failed</span>{% endif %}</h1>
+<table>
+  <tr><th>when</th><th>category</th><th>backend</th><th>model</th><th>effort</th>
+    <th class="num">in</th><th class="num">out</th><th class="num">cost</th><th class="num">time</th></tr>
+  <tr>
+    <td class="muted">{{ call.created_at|dt }}</td>
+    <td><span class="tag">{{ call.category }}</span></td>
+    <td>{{ call.backend }}</td>
+    <td>{{ call.model or 'default' }}</td>
+    <td>{{ call.effort or 'default' }}</td>
+    <td class="num">{{ '{:,}'.format(call.input_tokens) if call.input_tokens is not none else '—' }}</td>
+    <td class="num">{{ '{:,}'.format(call.output_tokens) if call.output_tokens is not none else '—' }}</td>
+    <td class="num">{{ '$%.3f' % call.cost_usd if call.cost_usd is not none else '—' }}</td>
+    <td class="num">{{ (call.duration_ms / 1000) | dur }}</td>
+  </tr>
+</table>
+{% if call.error %}
+<p>failed: {{ call.error }}</p>
+{% endif %}
+<h2>Prompt <span class="muted">({{ '{:,}'.format(call.prompt|length) }} chars)</span></h2>
+<pre>{{ call.prompt }}</pre>
+<h2>Reply</h2>
+{% if call.reply is not none %}
+<pre>{{ call.reply }}</pre>
+{% else %}
+<p class="muted">no reply — the call failed</p>
+{% endif %}
+{% endblock %}

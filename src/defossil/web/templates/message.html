@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}message — defossil{% endblock %}
+{% block content %}
+<h1>Message #{{ message.id }} <span class="badge {{ message.status }}">{{ message.status }}</span></h1>
+<details class="meta-line">
+  <summary>{{ message.source }} · {{ message.typed_at|dt }}</summary>
+  {% for key, value in message.meta.items() %}<div>{{ key }}: {{ value }}</div>{% endfor %}
+  <div>source_key: {{ message.source_key }}</div>
+</details>
+<pre>{{ message.text }}</pre>
+<h2>Corrections</h2>
+{% if message.status != 'reviewed' %}
+<p class="muted">{{ 'not reviewed yet' if message.status in ('new', 'pending') else 'not sent to review (' + message.status + ')' }}</p>
+{% elif corrections %}
+<table>
+  <tr><th>category</th><th>original</th><th>corrected</th><th>why</th></tr>
+  {% for c in corrections %}
+  <tr><td>{{ c.category }}</td><td>{{ c.original }}</td><td>{{ c.corrected }}</td><td>{{ c.explanation }}</td></tr>
+  {% endfor %}
+</table>
+{% else %}
+<p class="muted">reviewed — no corrections</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,29 @@
+# Python
+__pycache__
+*.egg-info
+pip-wheel-metadata
+
+# Build artifacts
+/dist
+/build
+
+# Tool caches
+.mypy_cache
+.ruff_cache
+
+# Environments
+.venv
+
+# IDE
+.idea
+.vscode
+
+# OS
+.DS_Store
+
+# Personal dev scratch (notes, configs, temp code snippets) — never committed
+tmp/
+CLAUDE.md
+
+# Local data (SQLite database)
+data/

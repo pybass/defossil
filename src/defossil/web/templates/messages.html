@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}messages — defossil{% endblock %}
+{% block content %}
+<div class="page-head">
+<h1>Messages <span class="muted">({{ total }})</span></h1>
+<form class="filterbar" method="get">
+  <span class="filter-group">
+    <span class="filter-label">status</span>
+    <select name="status" onchange="this.form.submit()">
+      <option value="all"{% if status == 'all' %} selected{% endif %}>all</option>
+      {% for label, n in statuses.items() %}<option value="{{ label }}"{% if label == status %} selected{% endif %}>{{ label }} ({{ n }})</option>{% endfor %}
+    </select>
+  </span>
+  <span class="filter-group">
+    <span class="filter-label">source</span>
+    <select name="source" onchange="this.form.submit()">
+      <option value=""{% if not source %} selected{% endif %}>all</option>
+      {% for label, n in sources.items() %}<option value="{{ label }}"{% if label == source %} selected{% endif %}>{{ label }} ({{ n }})</option>{% endfor %}
+    </select>
+  </span>
+</form>
+</div>
+<table>
+  {% for r in rows %}
+  {% if loop.first or loop.previtem.typed_at|day != r.typed_at|day %}
+  <tr class="day"><td colspan="3">{{ 'today' if r.typed_at|day == today else r.typed_at|day }}</td></tr>
+  {% endif %}
+  <tr>
+    <td class="muted"><a href="/messages/{{ r.id }}">{{ r.typed_at|hm }}</a></td>
+    <td class="meta"><span class="tag">{{ r.source }}</span> <span class="badge {{ r.status }}">{{ r.status }}</span>
+      {% if r.status == 'reviewed' %}{% set n = correction_counts.get(r.id) %}
+      {% if n %}<span class="badge">{{ n }} correction{{ 's' if n != 1 }}</span>{% endif %}
+      {% endif %}</td>
+    <td>{{ r.text|truncate(500) }}</td>
+  </tr>
+  {% endfor %}
+</table>
+<p class="pager">
+  {% if page > 1 %}<a href="?status={{ status }}&source={{ source }}&page={{ page - 1 }}">← prev</a>{% endif %}
+  page {{ page }} / {{ pages }}
+  {% if page < pages %}<a href="?status={{ status }}&source={{ source }}&page={{ page + 1 }}">next →</a>{% endif %}
+</p>
+{% endblock %}

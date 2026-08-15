@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}report #{{ r.id }} — defossil{% endblock %}
+{% block content %}
+<h1>Report #{{ r.id }} <span class="muted">{{ r.created_at|dt }}</span></h1>
+<p class="muted">Covers messages #{{ r.first_message_id }} → #{{ r.last_message_id }} ·
+  corrections #{{ r.first_correction_id }} → #{{ r.last_correction_id }} ({{ r.last_correction_id - r.first_correction_id + 1 }})
+  <button class="ack" data-acked="{{ '1' if r.acknowledged else '0' }}"
+    title="{{ 'undo' if r.acknowledged else 'mark this report as read' }}"
+    onclick="toggleAcknowledged(this, {{ r.id }})">{{ '✓ read' if r.acknowledged else 'got it' }}</button></p>
+<div id="report" class="markdown"></div>
+<script src="/static/marked.min.js"></script>
+<script src="/static/purify.min.js"></script>
+<script>
+  /* Sanitized because the report quotes fragments of chat messages, which may carry pasted HTML. */
+  document.getElementById("report").innerHTML = DOMPurify.sanitize(marked.parse({{ r.text|tojson }}));
+  async function toggleAcknowledged(button, id) {
+    const acked = button.dataset.acked === '1';
+    const res = await fetch(`/reports/${id}/` + (acked ? 'unacknowledge' : 'acknowledge'), {method: 'POST'});
+    if (!res.ok) { alert(await res.text()); return; }
+    button.dataset.acked = acked ? '0' : '1';
+    button.textContent = acked ? 'got it' : '✓ read';
+    button.title = acked ? 'mark this report as read' : 'undo';
+  }
+</script>
+{% endblock %}

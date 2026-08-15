@@ -1,0 +1,126 @@
+# ============================================================================
+#  Project metadata
+# ============================================================================
+[project]
+name = "defossil"
+version = "0.0.1"
+description = "Improve your English by reviewing your own chats with AI coding agents."
+readme = "README.md"
+authors = [{ name = "pybass" }]
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.14"
+classifiers = [
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Education",
+]
+dependencies = [
+    "fastapi>=0.141.1",
+    "jinja2>=3.1.6",
+    "markupsafe>=3.0.3",
+    "pydantic>=2.13.4",
+    "uvicorn>=0.52.3",
+]
+
+[project.urls]
+Repository = "https://github.com/pybass/defossil"
+Issues = "https://github.com/pybass/defossil/issues"
+
+[project.scripts]
+defossil = "defossil.__main__:main"
+
+# ============================================================================
+#  Build system
+# ============================================================================
+[build-system]
+requires = ["uv_build>=0.12,<0.13"]  # pinned: backends live outside uv.lock — an open range breaks reproducible tag builds
+build-backend = "uv_build"
+
+
+# ============================================================================
+#  Development dependencies — grouped by role (mirrors the tool sections below)
+# ============================================================================
+[dependency-groups]
+dev = [
+    # Linting & formatting
+    "ruff~=0.16.3",
+    # Type checking
+    "mypy~=2.3.1",
+    # Security & vulnerability audit
+    "pip-audit~=2.10.1",
+    # Dependency hygiene — imports vs declared deps
+    "deptry~=0.25.1",
+    # Git pre-commit hooks
+    "pre-commit~=4.6.2",
+    # Dev-server auto-restart (justfile `dev`)
+    "watchfiles~=1.2.0",
+]
+
+
+# ============================================================================
+#  uv
+# ============================================================================
+[tool.uv]
+required-version = ">=0.12"  # refuse a uv too old for the lock/sync behaviors the justfile relies on
+
+
+# ============================================================================
+#  Ruff — linting & formatting
+# ============================================================================
+[tool.ruff]
+line-length = 130
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    # --- Ecosystem / tool conflicts ---
+    "COM812",   # redundant and incompatible with ruff format
+    "D203",     # one-blank-line-before-class — conflicts with D211
+    "D213",     # multi-line-summary-second-line — conflicts with D212
+
+    # --- Stylistic preferences ---
+    "PLC0414",  # useless-import-alias — `import x as x` is our explicit re-export marker
+    "RET503",   # implicit-return — explicit None returns are noisy
+    "G004",     # f-strings in logging — accepted
+
+    # --- Categories that fight our coding style ---
+    "FIX",      # flake8-fixme — TODOs are fine; tracked elsewhere
+    "FBT",      # boolean-trap — too restrictive
+    "EM",       # error-message strings — inline messages accepted
+    "CPY",      # flake8-copyright — no copyright headers
+    "TC",       # flake8-type-checking — TYPE_CHECKING blocks save import time we don't care about; cost: import noise + broken runtime annotations (pydantic)
+    "TRY003",   # raise-vanilla-args — too noisy
+    "C901",     # complex-structure — judgment call
+
+    # --- Soft pylint thresholds ---
+    "PLR0911",  # too-many-return-statements
+    "PLR0912",  # too-many-branches
+    "PLR0913",  # too-many-arguments
+    "PLR2004",  # magic-value-comparison
+
+    # --- Async edge case ---
+    "ASYNC109", # async-function-with-timeout — debatable, off
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+docstring-code-format = true
+
+
+# ============================================================================
+#  Type checking — mypy (strict)
+# ============================================================================
+[tool.mypy]
+python_version = "3.14"
+strict = true
+
+
+# ============================================================================
+#  deptry — imports vs declared deps
+# ============================================================================
+[tool.deptry.per_rule_ignores]
+DEP002 = ["jinja2"]  # used only through fastapi.templating (an optional fastapi extra), never imported directly

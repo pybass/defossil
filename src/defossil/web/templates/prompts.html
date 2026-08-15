@@ -1,0 +1,10 @@
+{% extends "system_base.html" %}
+{% block title %}prompts — defossil{% endblock %}
+{% block system_content %}
+<h1>Prompts</h1>
+<p class="muted">Each prompt exactly as it is sent, placeholders filled; the data named next to it is appended at call time.</p>
+{% for p in prompts %}
+<h2>{{ p.name }} <span class="muted">+ {{ p.appended }}</span></h2>
+<pre>{{ p.text }}</pre>
+{% endfor %}
+{% endblock %}

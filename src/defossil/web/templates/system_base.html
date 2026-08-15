@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+{% set path = request.url.path %}
+<nav class="subnav">
+  {% for label, href in [("settings", "/system/settings"), ("ai calls", "/system/ai-calls"), ("prompts", "/system/prompts"), ("pipeline", "/system/pipeline"), ("developer", "/system/developer")] %}
+  <a href="{{ href }}"{% if path.startswith(href) %} class="active"{% endif %}>{{ label }}</a>
+  {% endfor %}
+</nav>
+{% block system_content %}{% endblock %}
+{% endblock %}

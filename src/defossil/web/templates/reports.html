@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}reports — defossil{% endblock %}
+{% block content %}
+<h1>Reports <span class="muted">({{ reports|length }})</span></h1>
+<p class="muted">{{ unreported }} of {{ window }} corrections toward the next report — the server makes it on its own.{%
+  if pending %} {{ pending }} messages still await review.{% endif %}</p>
+<table>
+  <tr><th>#</th><th>created</th><th>covers messages</th><th>covers corrections</th><th class="num">corrections</th>
+    <th class="num">msgs</th><th class="num" title="corrections per reviewed message — falling means improving">corr/msg</th>
+    <th class="num">words</th></tr>
+  {% for r in reports %}
+  <tr{% if r.acknowledged %} class="acked"{% endif %}>
+    <td><a href="/reports/{{ r.id }}">#{{ r.id }}</a>{% if not r.acknowledged %} <span class="badge new">new</span>{% endif %}</td>
+    <td class="muted">{{ r.created_at|dt }}</td>
+    <td class="muted">#{{ r.first_message_id }} → #{{ r.last_message_id }}</td>
+    <td class="muted">#{{ r.first_correction_id }} → #{{ r.last_correction_id }}</td>
+    <td class="num">{{ r.last_correction_id - r.first_correction_id + 1 }}</td>
+    {% set n = reviewed_counts[r.id] %}
+    <td class="num">{{ n }}</td>
+    <td class="num">{{ '%.2f' % ((r.last_correction_id - r.first_correction_id + 1) / n) if n else '—' }}</td>
+    <td class="num">{{ r.text.split()|length }}</td>
+  </tr>
+  {% else %}
+  <tr><td colspan="8" class="muted">No reports yet.</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}

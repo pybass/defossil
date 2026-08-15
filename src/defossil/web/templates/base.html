@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}defossil{% endblock %}</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<header class="site-header">
+  <img class="brand" src="/static/logo.svg" alt="defossil">
+  <nav>
+    {% for item in ["messages", "corrections"] %}
+    <a href="/{{ item }}"{% if request.url.path.startswith("/" + item) %} class="active"{% endif %}>{{ item }}</a>
+    {% endfor %}
+    {% set unread = unread_reports() %}
+    <a href="/reports"{% if request.url.path.startswith("/reports") %} class="active"{% endif %}>reports{% if unread %}<span class="unread">{{ unread }}</span>{% endif %}</a>
+    <a href="/system" class="sep{% if request.url.path.startswith("/system") %} active{% endif %}">system</a>
+    <button type="button" class="pipeline-toggle{{ ' on' if pipeline_enabled() }}"
+            title="on: new messages are collected, reviewed, and turned into reports on their own; off: everything is paused">
+      auto-review<span class="track"><span class="knob"></span></span>
+    </button>
+  </nav>
+</header>
+<main>
+{% block content %}{% endblock %}
+</main>
+<footer class="site-footer">
+  <span><span class="de">de</span>fossil <span class="version">v{{ version }}</span></span>
+  <a href="https://github.com/pybass/defossil" target="_blank" rel="noopener">github &nearr;</a>
+</footer>
+<script>
+for (const toggle of document.querySelectorAll('.pipeline-toggle')) {
+  toggle.addEventListener('click', async () => {
+    const res = await fetch('/system/pipeline/toggle', {method: 'POST'});
+    if (!res.ok) { alert(await res.text()); return; }
+    const on = (await res.json()).enabled;
+    for (const other of document.querySelectorAll('.pipeline-toggle')) other.classList.toggle('on', on);
+    // The pipeline page's state and countdown texts are server-rendered; re-render them.
+    if (location.pathname === '/system/pipeline') location.reload();
+  });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,69 @@
+{% extends "system_base.html" %}
+{% block title %}settings — defossil{% endblock %}
+{% block system_content %}
+<h1>Settings</h1>
+<p class="muted">Stored in the database and read at use time — a change applies without a restart. An emptied field returns to its default.</p>
+<form method="post" action="/system/settings" class="settings-form">
+  <label for="native_language">native language</label>
+  <div>
+    <input id="native_language" name="native_language" value="{{ settings.native_language }}">
+    <p class="hint">By its English name. The reviewer explains in it; the report hunts for patterns carried over from it.</p>
+  </div>
+
+  <label for="ai_backend">ai backend</label>
+  <div>
+    <select id="ai_backend" name="ai_backend">
+      {% for name in ["claude", "codex"] %}
+      <option{% if settings.ai_backend == name %} selected{% endif %}>{{ name }}</option>
+      {% endfor %}
+    </select>
+    <p class="hint">Which CLI answers the review and report prompts.</p>
+  </div>
+
+  {% for category in ["review", "explain", "report"] %}
+  <label for="{{ category }}_model">{{ category }} model</label>
+  <div>
+    <input id="{{ category }}_model" name="{{ category }}_model" value="{{ settings[category + '_model'] }}">
+    <p class="hint">Model for the {{ category }} prompt, passed to the CLI as-is (e.g. claude: sonnet, opus; codex: gpt-5.1).</p>
+  </div>
+
+  <label for="{{ category }}_effort">{{ category }} effort</label>
+  <div>
+    <input id="{{ category }}_effort" name="{{ category }}_effort" value="{{ settings[category + '_effort'] }}">
+    <p class="hint">Reasoning effort for the {{ category }} prompt. claude: low / medium / high / xhigh / max; codex: minimal / low / medium / high.</p>
+  </div>
+  {% endfor %}
+
+  <label for="claude_projects_dir">claude projects dir</label>
+  <div>
+    <input id="claude_projects_dir" name="claude_projects_dir" value="{{ settings.claude_projects_dir }}">
+    <p class="hint">Where Claude Code keeps its transcripts.</p>
+  </div>
+
+  <label for="codex_sessions_dir">codex sessions dir</label>
+  <div>
+    <input id="codex_sessions_dir" name="codex_sessions_dir" value="{{ settings.codex_sessions_dir }}">
+    <p class="hint">Where Codex CLI keeps its sessions.</p>
+  </div>
+
+  <label for="messages_per_review">messages per review</label>
+  <div>
+    <input id="messages_per_review" name="messages_per_review" type="number" min="1" value="{{ settings.messages_per_review }}">
+    <p class="hint">Messages per review call; a review runs only when a full batch is pending.</p>
+  </div>
+
+  <label for="corrections_per_report">corrections per report</label>
+  <div>
+    <input id="corrections_per_report" name="corrections_per_report" type="number" min="1" value="{{ settings.corrections_per_report }}">
+    <p class="hint">Corrections one report covers, exactly; once this many accumulate, the server makes the report on its own.</p>
+  </div>
+
+  <label for="page_size">page size</label>
+  <div>
+    <input id="page_size" name="page_size" type="number" min="1" value="{{ settings.page_size }}">
+    <p class="hint">Rows per page on the list pages: messages, corrections, ai calls.</p>
+  </div>
+
+  <div class="save"><button>save</button></div>
+</form>
+{% endblock %}

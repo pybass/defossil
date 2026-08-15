@@ -1,0 +1,42 @@
+{% extends "system_base.html" %}
+{% block title %}ai calls — defossil{% endblock %}
+{% block system_content %}
+<div class="page-head">
+<h1>AI calls <span class="muted">({{ total }})</span></h1>
+<form class="filterbar" method="get">
+  <span class="filter-group">
+    <span class="filter-label">category</span>
+    <select name="category" onchange="this.form.submit()">
+      <option value=""{% if not category %} selected{% endif %}>all</option>
+      {% for label, n in categories.items() %}<option value="{{ label }}"{% if label == category %} selected{% endif %}>{{ label }} ({{ n }})</option>{% endfor %}
+    </select>
+  </span>
+</form>
+</div>
+<table>
+  <tr><th>time</th><th>category</th><th>backend</th><th class="num">in</th><th class="num">out</th>
+    <th class="num">cost</th><th class="num">took</th><th></th></tr>
+  {% for r in rows %}
+  {% if loop.first or loop.previtem.created_at|day != r.created_at|day %}
+  <tr class="day"><td colspan="8">{{ 'today' if r.created_at|day == today else r.created_at|day }}</td></tr>
+  {% endif %}
+  <tr>
+    <td class="muted"><a href="/system/ai-calls/{{ r.id }}">{{ r.created_at|hm }}</a></td>
+    <td><span class="tag">{{ r.category }}</span></td>
+    <td class="meta">{{ r.backend }}{% if r.model %} · {{ r.model }}{% endif %}{% if r.effort %} · {{ r.effort }}{% endif %}</td>
+    <td class="num">{{ '{:,}'.format(r.input_tokens) if r.input_tokens is not none else '—' }}</td>
+    <td class="num">{{ '{:,}'.format(r.output_tokens) if r.output_tokens is not none else '—' }}</td>
+    <td class="num">{{ '$%.3f' % r.cost_usd if r.cost_usd is not none else '—' }}</td>
+    <td class="num">{{ (r.duration_ms / 1000) | dur }}</td>
+    <td>{% if r.error %}<span class="badge error">failed</span>{% endif %}</td>
+  </tr>
+  {% else %}
+  <tr><td colspan="8" class="muted">Nothing here yet — the log fills as reviews, explains and reports run.</td></tr>
+  {% endfor %}
+</table>
+<p class="pager">
+  {% if page > 1 %}<a href="?category={{ category }}&page={{ page - 1 }}">← prev</a>{% endif %}
+  page {{ page }} / {{ pages }}
+  {% if page < pages %}<a href="?category={{ category }}&page={{ page + 1 }}">next →</a>{% endif %}
+</p>
+{% endblock %}

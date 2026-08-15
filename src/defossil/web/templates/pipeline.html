@@ -1,0 +1,44 @@
+{% extends "system_base.html" %}
+{% block title %}pipeline — defossil{% endblock %}
+{% block system_content %}
+<h1>Pipeline</h1>
+<p class="muted">Every sweep runs collect → classify → review batches of {{ batch_size }} → report per {{ window }} corrections.</p>
+<dl class="facts">
+  <dt>state</dt>
+  <dd>
+    <button type="button" class="pipeline-toggle{{ ' on' if pipeline_enabled() }}" title="toggle auto-review">
+      <span class="track"><span class="knob"></span></span>
+    </button>
+    {% if pipeline_enabled() %}on — sweeps every {{ sweep_interval | dur }}
+    {% else %}off — paused; nothing runs, not even collection{% endif %}
+  </dd>
+  <dt>last sweep</dt>
+  <dd>
+    {% if pipeline %}
+    {{ pipeline.swept_at | ago }} —
+    {% if pipeline.error %}
+    <span class="badge error">failed</span> {{ pipeline.error }}
+    {% else %}
+    {{ pipeline.new_messages }} new message{{ 's' if pipeline.new_messages != 1 }},
+    {{ pipeline.reviewed }} reviewed, {{ pipeline.corrections }} correction{{ 's' if pipeline.corrections != 1 }},
+    {{ pipeline.reports }} report{{ 's' if pipeline.reports != 1 }}
+    {% endif %}
+    {% elif pipeline_enabled() %}
+    first sweep still running
+    {% else %}
+    no sweep yet
+    {% endif %}
+  </dd>
+  {% if pipeline_enabled() and pipeline %}
+  <dt>next sweep</dt>
+  <dd>in ~{{ next_sweep_in | dur }}
+    <form class="inline" method="post" action="/system/pipeline/sweep"><button>sweep now</button></form></dd>
+  {% endif %}
+  <dt>next review</dt>
+  <dd><span class="meter"><span style="width: {{ review_pct }}%"></span></span>
+    {{ pending }} / {{ batch_size }} messages pending — a review runs on a full batch</dd>
+  <dt>next report</dt>
+  <dd><span class="meter"><span style="width: {{ report_pct }}%"></span></span>
+    {{ unreported }} / {{ window }} corrections</dd>
+</dl>
+{% endblock %}

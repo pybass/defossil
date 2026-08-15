@@ -1,0 +1,20 @@
+{% extends "system_base.html" %}
+{% block title %}developer — defossil{% endblock %}
+{% block system_content %}
+<h1>Developer</h1>
+<p class="muted">Tools for working on defossil itself — each one breaks a rule the app normally keeps.</p>
+
+<h2>Delete the last report</h2>
+{% if last %}
+<p>The last report is <a href="/reports/{{ last.id }}">#{{ last.id }}</a> ({{ last.created_at|dt }}),
+  over corrections #{{ last.first_correction_id }} → #{{ last.last_correction_id }}.</p>
+<p class="muted">Deleting it reopens its correction window, so the pipeline rebuilds the report on a later sweep —
+  the way to try a changed report prompt on the same data. Pause the pipeline first if the prompt is not ready yet.</p>
+<form method="post" action="/system/developer/delete-last-report"
+  onsubmit="return confirm('Delete report #{{ last.id }}?')">
+  <button class="danger">delete report #{{ last.id }}</button>
+</form>
+{% else %}
+<p class="muted">No reports yet — nothing to delete.</p>
+{% endif %}
+{% endblock %}

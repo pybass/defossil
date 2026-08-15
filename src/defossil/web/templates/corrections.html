@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% block title %}corrections — defossil{% endblock %}
+{% block content %}
+<div class="page-head">
+<h1>Corrections <span class="muted">({{ total }})</span></h1>
+{% if pending %}<span class="muted">{{ pending }} message{{ 's' if pending != 1 }} pending review</span>{% endif %}
+<form class="filterbar" method="get">
+  <span class="filter-group">
+    <span class="filter-label">category</span>
+    <select name="category" onchange="this.form.submit()">
+      <option value="">all</option>
+      {% for c, n in categories %}<option value="{{ c }}"{% if c == category %} selected{% endif %}>{{ c }} ({{ n }})</option>{% endfor %}
+    </select>
+  </span>
+  <span class="filter-group">
+    <span class="filter-label">show</span>
+    <a href="?category={{ category }}"{% if show != 'all' %} class="active"{% endif %}>unacknowledged</a>
+    <a href="?category={{ category }}&show=all"{% if show == 'all' %} class="active"{% endif %}>all</a>
+  </span>
+  <input type="hidden" name="show" value="{{ show }}">
+</form>
+</div>
+<table>
+  <tr><th class="when">time</th><th class="half">correction</th><th class="half">why</th></tr>
+  {% for r in rows %}
+  {% if loop.first or loop.previtem.typed_at|day != r.typed_at|day %}
+  <tr class="day"><td colspan="3">{{ 'today' if r.typed_at|day == today else r.typed_at|day }}</td></tr>
+  {% endif %}
+  {% set asking = r.id in pending_explains %}
+  <tr data-id="{{ r.id }}"{% if r.acknowledged %} class="acked"{% endif %}>
+    <td class="when">
+      <div><button class="ack tick" data-acked="{{ '1' if r.acknowledged else '0' }}"
+        title="{{ 'undo' if r.acknowledged else 'got it — mark as read and understood' }}"
+        onclick="toggleAcknowledged(this, {{ r.id }})">{{ '↺' if r.acknowledged else '✓' }}</button>
+        <a href="/messages/{{ r.message_id }}">{{ r.typed_at|hm }}</a></div>
+      <div>{% set info = catalog[r.category] %}
+        <span class="tag cat" tabindex="0">{{ r.category }}<span class="cat-pop">
+          <strong>{{ info.title }}</strong> <span class="muted">· {{ info.kind }}</span>
+          <span class="cat-desc">{{ info.description }}</span>
+          {% if info.example %}<span class="cat-example">{{ info.example }}</span>{% endif %}
+        </span></span></div>
+    </td>
+    <td>
+      <details class="diff">
+        <summary>{{ r.original|worddiff(r.corrected) }}</summary>
+        <div class="was">{{ r.original }}</div>
+        <div class="now">{{ r.corrected }}</div>
+      </details>
+    </td>
+    <td class="why">
+      <div class="why-note"><span class="why-text">{{ r.explanation }}</span>
+        <span class="explain-controls">
+          <span class="explain-buttons"{% if asking %} hidden{% endif %}>
+            <button onclick="requestExplain({{ r.id }}, '')" title="ask for a deeper explanation">explain</button>
+            <button onclick="openExplainDialog(this, {{ r.id }})" title="ask with your own question">ask…</button>
+            <button class="explain-toggle" onclick="toggleExplainAnswer({{ r.id }})"{% if not r.extra_explanation %} hidden{% endif %}>answer</button>
+          </span>
+          <span class="explain-asking muted"{% if not asking %} hidden{% endif %}>asking…</span>
+          <span class="explain-failed" hidden title="the ask failed — see the ai calls page">failed</span>
+        </span>
+      </div>
+    </td>
+  </tr>
+  {% if r.extra_explanation and not asking %}
+  <tr class="explain-row{{ ' acked' if r.acknowledged }}" data-for="{{ r.id }}" hidden>
+    <td></td>
+    <td colspan="2"><div class="markdown explain-text">{{ r.extra_explanation }}</div></td>
+  </tr>
+  {% endif %}
+  {% else %}
+  <tr><td colspan="3" class="muted">Nothing here — every correction is acknowledged.</td></tr>
+  {% endfor %}
+</table>
+<p class="pager">
+  {% if page > 1 %}<a href="?category={{ category }}&show={{ show }}&page={{ page - 1 }}">← prev</a>{% endif %}
+  page {{ page }} / {{ pages }}
+  {% if page < pages %}<a href="?category={{ category }}&show={{ show }}&page={{ page + 1 }}">next →</a>{% endif %}
+</p>
+<dialog id="explain-dialog">
+  <div class="explain-correction">
+    <div class="diff-line"></div>
+    <div class="muted why"></div>
+  </div>
+  <textarea rows="2" placeholder="Your own question — optional"></textarea>
+  <div class="explain-actions">
+    <button onclick="sendExplainQuestion()">ask</button>
+    <button class="explain-close" onclick="document.getElementById('explain-dialog').close()">close</button>
+  </div>
+</dialog>
+<script src="/static/marked.min.js"></script>
+<script src="/static/purify.min.js"></script>
+<script>
+const showAll = {{ 'true' if show == 'all' else 'false' }};
+async function toggleAcknowledged(button, id) {
+  const acked = button.dataset.acked === '1';
+  const res = await fetch(`/corrections/${id}/` + (acked ? 'unacknowledge' : 'acknowledge'), {method: 'POST'});
+  if (!res.ok) { alert(await res.text()); return; }
+  const row = button.closest('tr');
+  const extra = explainRowFor(id);
+  if (!showAll) { row.remove(); if (extra) extra.remove(); return; }
+  button.dataset.acked = acked ? '0' : '1';
+  button.textContent = acked ? '✓' : '↺';
+  button.title = acked ? 'got it — mark as read and understood' : 'undo';
+  row.classList.toggle('acked', !acked);
+  if (extra) extra.classList.toggle('acked', !acked);
+}
+function renderExplainMarkdown(el) {
+  /* Sanitized because the answer quotes fragments of chat messages, which may carry pasted HTML. */
+  el.innerHTML = DOMPurify.sanitize(marked.parse(el.textContent));
+}
+document.querySelectorAll('.explain-text').forEach(renderExplainMarkdown);
+function explainRowFor(id) { return document.querySelector(`tr.explain-row[data-for="${id}"]`); }
+function explainControlsFor(id) { return document.querySelector(`tr[data-id="${id}"] .explain-controls`); }
+function setExplainAsking(id) {
+  const cell = explainControlsFor(id);
+  cell.querySelector('.explain-buttons').hidden = true;
+  cell.querySelector('.explain-asking').hidden = false;
+  cell.querySelector('.explain-toggle').hidden = true;
+  cell.querySelector('.explain-failed').hidden = true;
+  const row = explainRowFor(id);
+  if (row) row.remove();  /* the stored answer is being replaced */
+}
+function showExplainAnswer(id, text) {
+  const cell = explainControlsFor(id);
+  cell.querySelector('.explain-buttons').hidden = false;
+  cell.querySelector('.explain-asking').hidden = true;
+  const main = document.querySelector(`tr[data-id="${id}"]`);
+  const row = document.createElement('tr');
+  row.className = 'explain-row' + (main.classList.contains('acked') ? ' acked' : '');
+  row.dataset.for = id;
+  row.innerHTML = '<td></td><td colspan="2"></td>';
+  const div = document.createElement('div');
+  div.className = 'markdown explain-text';
+  div.textContent = text;
+  renderExplainMarkdown(div);
+  row.cells[1].append(div);
+  main.after(row);
+  /* A just-arrived answer opens itself — the user asked for it and is waiting to read it. */
+  const toggle = cell.querySelector('.explain-toggle');
+  toggle.hidden = false;
+  toggle.classList.add('open');
+}
+function toggleExplainAnswer(id) {
+  const row = explainRowFor(id);
+  row.hidden = !row.hidden;
+  explainControlsFor(id).querySelector('.explain-toggle').classList.toggle('open', !row.hidden);
+}
+function setExplainFailed(id) {
+  const cell = explainControlsFor(id);
+  cell.querySelector('.explain-buttons').hidden = false;
+  cell.querySelector('.explain-asking').hidden = true;
+  cell.querySelector('.explain-failed').hidden = false;
+}
+async function requestExplain(id, question) {
+  const res = await fetch(`/corrections/${id}/explain`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({question}),
+  });
+  if (!res.ok) { alert(await res.text()); return; }
+  setExplainAsking(id);
+  pendingExplains.add(id);
+  if (!pollTimer) pollTimer = setInterval(pollExplainStatus, 3000);
+}
+const pendingExplains = new Set(
+  [...document.querySelectorAll('.explain-asking:not([hidden])')].map(el => Number(el.closest('tr').dataset.id)));
+let pollTimer = pendingExplains.size ? setInterval(pollExplainStatus, 3000) : null;
+async function pollExplainStatus() {
+  const ids = [...pendingExplains];
+  const res = await fetch(`/corrections/explain-status?ids=${ids.join(',')}`);
+  if (!res.ok) return;  /* transient — the next tick retries */
+  const statuses = await res.json();
+  for (const id of ids) {
+    const status = statuses[id];
+    if (!status || status.pending) continue;
+    pendingExplains.delete(id);
+    if (!explainControlsFor(id)) continue;  /* the row was acknowledged away while its ask ran */
+    if (status.extra_explanation) showExplainAnswer(id, status.extra_explanation);
+    else setExplainFailed(id);
+  }
+  if (!pendingExplains.size) { clearInterval(pollTimer); pollTimer = null; }
+}
+const explainDialog = document.getElementById('explain-dialog');
+explainDialog.addEventListener('click', e => { if (e.target === explainDialog) explainDialog.close(); });
+function openExplainDialog(button, id) {
+  const row = button.closest('tr');
+  explainDialog.dataset.id = id;
+  /* The diff summary is server-rendered markup; copying it keeps the same word-diff look. */
+  explainDialog.querySelector('.diff-line').innerHTML = row.querySelector('details.diff summary').innerHTML;
+  explainDialog.querySelector('.why').textContent = row.querySelector('.why-text').textContent;
+  explainDialog.querySelector('textarea').value = '';
+  explainDialog.showModal();
+}
+function sendExplainQuestion() {
+  explainDialog.close();
+  requestExplain(Number(explainDialog.dataset.id), explainDialog.querySelector('textarea').value);
+}
+</script>
+{% endblock %}
