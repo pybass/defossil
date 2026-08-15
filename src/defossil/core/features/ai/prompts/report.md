@@ -59,6 +59,9 @@ Rules:
 - Write every wrong -> right example as <wrong>original</wrong><right>corrected</right> on one line: plain text
   inside the tags, no markdown or backticks around the fragments. The UI renders each pair as a compact word-level
   diff that highlights exactly what changed, expandable to both full versions — untagged pairs stay plain text.
+- A remark about one specific pair goes in an optional <why>remark</why> right after its <right> tag, on the same
+  line, plain text: the UI shows it next to that pair. Anything about the habit as a whole — the rule, the counts —
+  stays ordinary markdown prose on its own lines.
 - Write in simple English.
 - The messages are terse chat: capitalization, punctuation and tone are off-limits.
 - Respond with plain markdown only, no preamble and no closing remarks.

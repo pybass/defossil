@@ -59,20 +59,26 @@ def _word_diff(original: str, correction: str) -> Markup:
 
 
 # No DOTALL: pairs are one line by prompt contract, and a malformed pair must not swallow lines up to the next one.
-_CORRECTION_RE = re.compile(r"<wrong>(.*?)</wrong>\s*<right>(.*?)</right>")
+_CORRECTION_RE = re.compile(r"<wrong>(.*?)</wrong>\s*<right>(.*?)</right>(?:\s*<why>(.*?)</why>)?")
 
 
 def _correction_tags(text: str) -> str:
-    """Replace <wrong>/<right> pairs in report markdown with the collapsed word-diff widget the corrections page uses."""
+    """Replace <wrong>/<right>[<why>] pairs in report markdown with the collapsed word-diff widget the corrections page uses."""
 
     def widget(m: re.Match[str]) -> str:
         """One pair as a details widget, on one line — a line break would make marked close the surrounding list item."""
         wrong, right = m[1].strip(), m[2].strip()
+        why = f' <span class="diff-why">{escape(m[3].strip())}</span>' if m[3] else ""
         return (
             f'<details class="diff"><summary>{_word_diff(wrong, right)}</summary>'
-            f'<div class="was">{escape(wrong)}</div><div class="now">{escape(right)}</div></details>'
+            f'<div class="was">{escape(wrong)}</div><div class="now">{escape(right)}</div></details>{why}'
         )
 
+    # A pair alone on its line gets a block wrapper — consecutive bare pairs would otherwise flow side by side,
+    # because marked passes adjacent raw-HTML lines through as one block and the widgets are inline-block.
+    # The trailing newline blank-line-terminates the HTML block, so the prose after it is parsed as markdown again.
+    full_line = re.compile(rf"^{_CORRECTION_RE.pattern}[ \t]*$", re.MULTILINE)
+    text = full_line.sub(lambda m: f'<div class="diff-item">{widget(m)}</div>\n', text)
     return _CORRECTION_RE.sub(widget, text)
 
 
