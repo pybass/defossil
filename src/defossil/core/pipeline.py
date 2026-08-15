@@ -97,14 +97,14 @@ class Pipeline(Service):
             self._wake.clear()
 
     def _sweep(self) -> PipelineStatus:
-        """Run the pipeline once: archive, judge, review full batches, then report full windows."""
+        """Run the pipeline once: archive, judge, review full batches, making each report as soon as its window fills."""
         services = self.core.services
         new_by_source = services.message.collect_messages()
         for source, new in new_by_source.items():
             if new:
                 logger.info(f"pipeline: {source} archived {new} new messages")
         services.message.classify_new_messages()
-        reviewed = corrections = 0
+        reviewed = corrections = reports = 0
         error: str | None = None
         # The enabled flag is re-checked per batch and per report, so switching off mid-sweep stops after the one in flight.
         while self._enabled.is_set() and not self._stopping.is_set():
@@ -124,13 +124,11 @@ class Pipeline(Service):
             reviewed += len(batch)
             corrections += added
             logger.info(f"pipeline: reviewed {len(batch)} messages, {added} corrections")
-        reports = 0
-        while self._enabled.is_set() and not self._stopping.is_set() and error is None:
-            if services.report.count_unreported_corrections() < services.setting.get_settings().corrections_per_report:
-                break
-            report = services.report.make_report()
-            logger.info(f"pipeline: made report {report.id}")
-            reports += 1
+            reports += self._make_due_reports()
+        if error is None:
+            # Windows can be due without a full batch reviewed: a lowered corrections_per_report, or a report that
+            # failed after its reviews succeeded.
+            reports += self._make_due_reports()
         return PipelineStatus(
             swept_at=datetime.now(UTC),
             new_messages=sum(new_by_source.values()),
@@ -139,3 +137,15 @@ class Pipeline(Service):
             reports=reports,
             error=error,
         )
+
+    def _make_due_reports(self) -> int:
+        """Make a report for every window of unreported corrections that has filled; return how many were made."""
+        services = self.core.services
+        made = 0
+        while self._enabled.is_set() and not self._stopping.is_set():
+            if services.report.count_unreported_corrections() < services.setting.get_settings().corrections_per_report:
+                break
+            report = services.report.make_report()
+            logger.info(f"pipeline: made report {report.id}")
+            made += 1
+        return made
