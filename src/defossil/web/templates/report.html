@@ -4,10 +4,11 @@
 <h1>Report #{{ r.id }} <span class="muted">{{ r.created_at|dt }}</span></h1>
 <p class="muted">Covers messages #{{ r.first_message_id }} → #{{ r.last_message_id }} ·
   corrections #{{ r.first_correction_id }} → #{{ r.last_correction_id }} ({{ r.last_correction_id - r.first_correction_id + 1 }})
-  <button class="ack" data-acked="{{ '1' if r.acknowledged else '0' }}"
-    title="{{ 'undo' if r.acknowledged else 'mark this report as read' }}"
-    onclick="toggleAcknowledged(this, {{ r.id }})">{{ '✓ read' if r.acknowledged else 'got it' }}</button></p>
+  <a class="pill" href="/reports/{{ r.id }}/download" title="a single HTML file you can share">download</a></p>
 <div id="report" class="markdown"></div>
+<p><button class="ack big" data-acked="{{ '1' if r.acknowledged else '0' }}"
+    title="{{ 'undo' if r.acknowledged else 'mark this report as read' }}"
+    onclick="toggleAcknowledged(this, {{ r.id }})">{{ '✓ read' if r.acknowledged else 'got it!' }}</button></p>
 <details class="meta-line">
   <summary>raw markdown — the report as stored, for debugging</summary>
   <pre>{{ r.text }}</pre>
@@ -22,7 +23,7 @@
     const res = await fetch(`/reports/${id}/` + (acked ? 'unacknowledge' : 'acknowledge'), {method: 'POST'});
     if (!res.ok) { alert(await res.text()); return; }
     button.dataset.acked = acked ? '0' : '1';
-    button.textContent = acked ? 'got it' : '✓ read';
+    button.textContent = acked ? 'got it!' : '✓ read';
     button.title = acked ? 'mark this report as read' : 'undo';
   }
 </script>

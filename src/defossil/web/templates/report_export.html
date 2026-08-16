@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>English writing report No. {{ r.id }} — defossil</title>
+  <style>
+    /* Standalone export of one report: the app's paper-and-ink palette, restyled as a
+       typed document with a letterhead — it travels as a single file, so no chrome. */
+    :root {
+      --paper: #fcfcf9;
+      --ink: #21201c;
+      --muted: #7a7468;
+      --line: #e6e3db;
+      --line-strong: #cfcabf;
+      --card: #f5f3ec;
+      --pen: #2352b8;
+      --del-bg: #fbe9e7;
+      --del-ink: #a03020;
+      --ins-bg: #e8f3e4;
+      --ins-ink: #22691f;
+      --mono: ui-monospace, "SF Mono", Menlo, monospace;
+      --display: "American Typewriter", "Courier New", Georgia, serif;  /* the wordmark's face, degrading politely */
+    }
+    html { font-size: 18px; }
+    body {
+      font-family: -apple-system, system-ui, sans-serif;
+      line-height: 1.55;
+      background: var(--paper);
+      color: var(--ink);
+      max-width: 44rem;
+      margin: 0 auto;
+      padding: 2.6rem 1.5rem 3rem;
+    }
+    a { color: var(--pen); }
+
+    /* Letterhead: ammonite mark, kicker, title, window line, then a thick-thin ledger rule. */
+    .kicker { display: flex; align-items: center; gap: 0.6rem; font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+    .kicker svg { height: 1.4rem; width: auto; color: var(--ink); }
+    h1 { font-family: var(--display); font-weight: 600; font-size: 2rem; letter-spacing: -0.01em; margin: 0.8rem 0 0.3rem; }
+    .doc-meta { font-family: var(--mono); font-size: 0.78rem; color: var(--muted); margin: 0; }
+    .rule { border-top: 3px solid var(--ink); margin: 1.3rem 0 1.8rem; }
+
+    .markdown h2 { font-size: 1.15rem; margin: 1.6rem 0 0.5rem; border-bottom: 1px solid var(--line); padding-bottom: 0.2rem; }
+    .markdown code { font-family: var(--mono); font-size: 0.9em; background: var(--card); padding: 0.1rem 0.3rem; border-radius: 3px; }
+    .markdown pre { white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--mono); font-size: 0.9em; background: var(--card); padding: 1rem; border-radius: 4px; }
+
+    del, ins { font-family: var(--mono); font-size: 0.9em; padding: 0.05rem 0.25rem; border-radius: 3px; }
+    del { background: var(--del-bg); color: var(--del-ink); }
+    ins { background: var(--ins-bg); color: var(--ins-ink); text-decoration: none; }
+
+    /* Correction widgets, identical to the app so the report reads the same when shared. */
+    .markdown details.diff { display: inline-block; vertical-align: top; }
+    .markdown .diff-item { display: list-item; margin-left: 2.5rem; }
+    .markdown .diff-why { color: var(--muted); }
+    .markdown .diff-why::before { content: "/ "; }
+    details.diff summary { list-style: none; cursor: pointer; font-family: var(--mono); font-size: 0.9em; }
+    details.diff summary::-webkit-details-marker { display: none; }
+    details.diff summary del, details.diff summary ins { font-size: 1em; }
+    details.diff .was, details.diff .now { font-family: var(--mono); font-size: 0.9em; margin-top: 0.25rem; }
+    details.diff .was { color: var(--del-ink); }
+    details.diff .now { color: var(--ins-ink); }
+
+    /* Glossary terms: dotted underline, click for a plain-English popup. */
+    .term { text-decoration: underline dotted var(--line-strong); text-decoration-thickness: 1.5px; text-underline-offset: 0.25em; cursor: help; }
+    .term:hover, .term:focus { text-decoration-color: var(--pen); outline: none; }
+    .term-pop {
+      position: absolute;
+      z-index: 10;
+      width: max-content;
+      max-width: 24rem;
+      font-size: 0.82rem;
+      line-height: 1.45;
+      color: var(--ink);
+      background: var(--paper);
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      padding: 0.5rem 0.7rem;
+      box-shadow: 0 2px 10px rgba(33, 32, 28, 0.12);
+    }
+    .term-pop[hidden] { display: none; }
+    .term-pop .term-name { display: block; font-family: var(--mono); font-size: 0.72rem; color: var(--muted); margin-bottom: 0.15rem; }
+    .term-pop .term-def { display: block; }
+    .term-pop .term-example { display: block; margin-top: 0.3rem; font-family: var(--mono); font-size: 0.9em; color: var(--muted); }
+
+    footer {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem 1rem;
+      margin-top: 3.5rem;
+      padding-top: 0.9rem;
+      border-top: 1px solid var(--line);
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--muted);
+    }
+    footer svg { display: block; height: 1.1rem; width: auto; }
+    footer a { color: var(--muted); }
+  </style>
+</head>
+<body>
+<header>
+  <p class="kicker">
+    <svg viewBox="2 4 28 24" aria-hidden="true"><path d="M28 17.5 A12 12 0 0 0 4 17.5 A8.5 8.5 0 0 0 21 17.5 A5 5 0 0 0 11 17.5 A1.5 1.5 0 0 0 14 17.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+    English writing report
+  </p>
+  <h1>Report No. {{ r.id }}</h1>
+  <p class="doc-meta">{{ r.created_at|dt }} · corrections #{{ r.first_correction_id }}–#{{ r.last_correction_id }} · from messages #{{ r.first_message_id }}–#{{ r.last_message_id }}</p>
+  <div class="rule"></div>
+</header>
+<div id="report" class="markdown"></div>
+<footer>
+  {{ logo_svg|safe }}
+  <span>written by defossil v{{ version }}, a personal English coach · <a href="https://github.com/pybass/defossil">github.com/pybass/defossil</a></span>
+</footer>
+<script>{{ marked_js|safe }}</script>
+<script>{{ purify_js|safe }}</script>
+<script>
+  /* Sanitized because the report quotes fragments of chat messages, which may carry pasted HTML. */
+  document.getElementById("report").innerHTML = DOMPurify.sanitize(marked.parse({{ r.text|correctiontags|tojson }}));
+</script>
+<script>{{ glossary_js|safe }}</script>
+</body>
+</html>

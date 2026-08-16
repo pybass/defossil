@@ -15,7 +15,7 @@
   --mono: ui-monospace, "SF Mono", Menlo, monospace;
 }
 
-html { font-size: 17px; }
+html { font-size: 18px; }
 
 body {
   font-family: -apple-system, system-ui, sans-serif;
@@ -183,6 +183,10 @@ details.diff .was, details.diff .now { font-family: var(--mono); font-size: 0.9e
 details.diff .was { color: var(--del-ink); }
 details.diff .now { color: var(--ins-ink); }
 
+/* Pill links: quiet inline actions, e.g. the report's download-for-sharing link. */
+a.pill { font-family: var(--mono); font-size: 0.72rem; color: var(--muted); text-decoration: none; border: 1px solid var(--line-strong); border-radius: 999px; padding: 0.1rem 0.6rem; white-space: nowrap; }
+a.pill:hover { color: var(--ink); border-color: var(--ink); }
+
 /* Acknowledge buttons: pills whose hover promises the green of an accepted correction.
    The report's pill wears the green once read; the corrections tick's undo state stays neutral. */
 button.ack { font-size: 0.72rem; padding: 0.1rem 0.6rem; border-radius: 999px; color: var(--muted); white-space: nowrap; }
@@ -190,6 +194,9 @@ button.ack[data-acked="0"]:hover { color: var(--ins-ink); border-color: var(--in
 button.ack:not(.tick)[data-acked="1"] { color: var(--ins-ink); background: var(--ins-bg); border-color: transparent; }
 button.ack:not(.tick)[data-acked="1"]:hover { border-color: var(--ins-ink); }
 button.tick { font-size: 0.8rem; line-height: 1; padding: 0.2rem 0.45rem; }
+button.ack.big { font-size: 1rem; padding: 0.45rem 1.4rem; }
+button.ack.big[data-acked="0"] { color: var(--paper); background: var(--ins-ink); border-color: var(--ins-ink); }
+button.ack.big[data-acked="0"]:hover { color: var(--paper); background: #1b541a; border-color: #1b541a; }
 
 /* Acknowledged corrections: kept visible in the "all" view, but quiet. */
 tr.acked td { color: var(--muted); }

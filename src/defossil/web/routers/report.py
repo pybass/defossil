@@ -1,5 +1,7 @@
 """The reports: every stored lesson and how far the next one is; also owns the root redirect."""
 
+from pathlib import Path
+
 from fastapi import APIRouter
 from fastapi.requests import Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -40,6 +42,20 @@ def create_router(core: Core) -> APIRouter:
     def report_page(request: Request, report_id: int) -> HTMLResponse:
         """One report; its markdown is rendered in the browser."""
         return templates.TemplateResponse(request, "report.html", {"r": core.services.report.get_report(report_id)})
+
+    @router.get("/reports/{report_id}/download", response_class=HTMLResponse)
+    def report_download(request: Request, report_id: int) -> HTMLResponse:
+        """Serve the report as one self-contained HTML file — scripts and images inlined, so it can be shared."""
+        static = Path(__file__).parent.parent / "static"
+        ctx = {
+            "r": core.services.report.get_report(report_id),
+            "marked_js": (static / "marked.min.js").read_text(encoding="utf-8"),
+            "purify_js": (static / "purify.min.js").read_text(encoding="utf-8"),
+            "glossary_js": (static / "glossary.js").read_text(encoding="utf-8"),
+            "logo_svg": (static / "logo.svg").read_text(encoding="utf-8"),
+        }
+        headers = {"Content-Disposition": f'attachment; filename="defossil-report-{report_id}.html"'}
+        return templates.TemplateResponse(request, "report_export.html", ctx, headers=headers)
 
     @router.post("/reports/{report_id}/acknowledge")
     def acknowledge(report_id: int) -> dict[str, bool]:
