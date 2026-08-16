@@ -2,7 +2,7 @@
 {% block title %}pipeline — defossil{% endblock %}
 {% block system_content %}
 <h1>Pipeline</h1>
-<p class="muted">Every sweep runs collect → classify → review batches of {{ batch_size }} → report per {{ window }} corrections.</p>
+<p class="muted">Every sweep reviews batches of {{ batch_size }} pending messages and makes a report per {{ window }} corrections. Importing runs on its own, always.</p>
 <dl class="facts">
   <dt>state</dt>
   <dd>
@@ -10,7 +10,7 @@
       <span class="track"><span class="knob"></span></span>
     </button>
     {% if pipeline_enabled() %}on — sweeps every {{ sweep_interval | dur }}
-    {% else %}off — paused; nothing runs, not even collection{% endif %}
+    {% else %}off — paused; no reviews, no reports; importing keeps running{% endif %}
   </dd>
   <dt>last sweep</dt>
   <dd>
@@ -19,7 +19,6 @@
     {% if pipeline.error %}
     <span class="badge error">failed</span> {{ pipeline.error }}
     {% else %}
-    {{ pipeline.new_messages }} new message{{ 's' if pipeline.new_messages != 1 }},
     {{ pipeline.reviewed }} reviewed, {{ pipeline.corrections }} correction{{ 's' if pipeline.corrections != 1 }},
     {{ pipeline.reports }} report{{ 's' if pipeline.reports != 1 }}
     {% endif %}

@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 
 
 class Source(StrEnum):
-    """Where a message came from; every member has a module under sources/ and is collected each sweep."""
+    """Where a message came from; every member has a module under sources/ and is imported each run."""
 
     CLAUDE_CODE = "claude-code"  # Claude Code CLI transcripts
     CODEX = "codex"  # Codex CLI rollout files
@@ -26,6 +26,13 @@ class MessageStatus(StrEnum):
     TOO_SHORT = "too-short"
     NO_PROSE = "no-prose"
     TOO_LONG = "too-long"
+
+
+class ImportStatus(BaseModel):
+    """The importer's last run; replaced whole, so a reader never sees a half-written one."""
+
+    imported_at: datetime  # when the run finished; the interval to the next one starts here
+    error: str | None = None  # the failure that ended the run, None when it completed; the next run retries
 
 
 class NewMessage(BaseModel):

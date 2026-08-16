@@ -1,6 +1,7 @@
-"""The one background thread that runs the whole pipeline: collect, classify, review, report.
+"""The one background thread that spends money: reviewing full batches and making reports.
 
 Nothing else creates corrections or reports, so their tables are strictly append-only and no step races another.
+Filling the archive is not its job — the message service's importer worker does that on its own clock.
 """
 
 import logging
@@ -25,7 +26,6 @@ class PipelineStatus(BaseModel):
     """What the pipeline's last sweep did; replaced whole, so a reader never sees a half-written one."""
 
     swept_at: datetime  # when the sweep finished; the interval to the next one starts here
-    new_messages: int  # archived this sweep, all sources together
     reviewed: int  # messages whose batches succeeded this sweep
     corrections: int  # corrections those batches appended
     reports: int  # reports made this sweep
@@ -64,7 +64,7 @@ class Pipeline(Service):
         return self._status
 
     def is_enabled(self) -> bool:
-        """Whether sweeps run at all; off pauses everything, collection included."""
+        """Whether sweeps run at all; off pauses reviewing and reporting, importing is not this worker's."""
         return self._enabled.is_set()
 
     def sweep_now(self) -> None:
@@ -90,20 +90,13 @@ class Pipeline(Service):
                 except Exception as e:
                     logger.exception("pipeline: sweep failed")
                     error = f"{type(e).__name__}: {e}"
-                    self._status = PipelineStatus(
-                        swept_at=datetime.now(UTC), new_messages=0, reviewed=0, corrections=0, reports=0, error=error
-                    )
+                    self._status = PipelineStatus(swept_at=datetime.now(UTC), reviewed=0, corrections=0, reports=0, error=error)
             self._wake.wait(SWEEP_INTERVAL)
             self._wake.clear()
 
     def _sweep(self) -> PipelineStatus:
-        """Run the pipeline once: archive, judge, review full batches, making each report as soon as its window fills."""
+        """Run the pipeline once: review full batches, making each report as soon as its window fills."""
         services = self.core.services
-        new_by_source = services.message.collect_messages()
-        for source, new in new_by_source.items():
-            if new:
-                logger.info(f"pipeline: {source} archived {new} new messages")
-        services.message.classify_new_messages()
         reviewed = corrections = reports = 0
         error: str | None = None
         # The enabled flag is re-checked per batch and per report, so switching off mid-sweep stops after the one in flight.
@@ -130,12 +123,7 @@ class Pipeline(Service):
             # failed after its reviews succeeded.
             reports += self._make_due_reports()
         return PipelineStatus(
-            swept_at=datetime.now(UTC),
-            new_messages=sum(new_by_source.values()),
-            reviewed=reviewed,
-            corrections=corrections,
-            reports=reports,
-            error=error,
+            swept_at=datetime.now(UTC), reviewed=reviewed, corrections=corrections, reports=reports, error=error
         )
 
     def _make_due_reports(self) -> int:
