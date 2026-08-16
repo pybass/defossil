@@ -1,6 +1,6 @@
-/* Glossary popups: grammar terms in rendered reports get a dotted underline; a click
-   shows a plain-English definition. Static data, matched client-side — no server calls.
-   Definitions are written for learners: short sentences, common words only. */
+/* Glossary popups: grammar terms in report and correction explanations get a dotted
+   underline; a click shows a plain-English definition. Static data, matched client-side —
+   no server calls. Definitions are written for learners: short sentences, common words only. */
 
 const GLOSSARY = [
   {name: "noun", def: "A word that names a thing, person, or idea.", ex: "report, mistake, user"},
@@ -55,10 +55,11 @@ const TERM_RE = new RegExp(
   "gi");
 
 /* Wrap glossary terms found in root's text in <span class="term">. Quoted user
-   fragments sit in code/pre and are skipped — only the lesson's own prose is marked. */
+   fragments sit in code/pre and in the wrong/right diff widgets and are skipped —
+   only the lesson's own prose is marked. */
 function annotateTerms(root) {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-    acceptNode: n => n.parentElement.closest("code, pre, a, .term") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
+    acceptNode: n => n.parentElement.closest("code, pre, a, .term, details.diff") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
   });
   const nodes = [];
   while (walker.nextNode()) nodes.push(walker.currentNode);
@@ -121,4 +122,4 @@ document.addEventListener("keydown", e => {
   }
 });
 
-for (const md of document.querySelectorAll(".markdown")) annotateTerms(md);
+for (const el of document.querySelectorAll(".markdown, .why-text")) annotateTerms(el);

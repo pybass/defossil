@@ -15,6 +15,8 @@
   --mono: ui-monospace, "SF Mono", Menlo, monospace;
 }
 
+html { font-size: 17px; }
+
 body {
   font-family: -apple-system, system-ui, sans-serif;
   line-height: 1.5;
@@ -152,7 +154,7 @@ ins { background: var(--ins-bg); color: var(--ins-ink); text-decoration: none; }
 .markdown .diff-why { color: var(--muted); }
 .markdown .diff-why::before { content: "/ "; }
 
-/* Glossary terms in reports: dotted underline, click for a plain-English popup (static/glossary.js). */
+/* Glossary terms in reports and corrections: dotted underline, click for a plain-English popup (static/glossary.js). */
 .term { text-decoration: underline dotted var(--line-strong); text-decoration-thickness: 1.5px; text-underline-offset: 0.25em; cursor: help; }
 .term:hover, .term:focus { text-decoration-color: var(--pen); outline: none; }
 .term-pop {

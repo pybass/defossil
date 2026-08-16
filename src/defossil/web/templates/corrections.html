@@ -133,6 +133,7 @@ function showExplainAnswer(id, text) {
   div.className = 'markdown explain-text';
   div.textContent = text;
   renderExplainMarkdown(div);
+  annotateTerms(div);  /* answers arriving after load miss glossary.js's own page scan */
   row.cells[1].append(div);
   main.after(row);
   /* A just-arrived answer opens itself — the user asked for it and is waiting to read it. */
@@ -196,4 +197,5 @@ function sendExplainQuestion() {
   requestExplain(Number(explainDialog.dataset.id), explainDialog.querySelector('textarea').value);
 }
 </script>
+<script src="/static/glossary.js"></script>
 {% endblock %}
