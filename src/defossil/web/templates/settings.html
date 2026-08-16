@@ -34,6 +34,16 @@
   </div>
   {% endfor %}
 
+  {% for source in ["claude_code", "codex"] %}
+  <label for="source_{{ source }}_enabled">source {{ source.replace("_", " ") }} enabled</label>
+  <div>
+    {# The hidden input makes an unchecked box submit "false"; an absent key would mean the default, which is on. #}
+    <input type="hidden" name="source_{{ source }}_enabled" value="false">
+    <input id="source_{{ source }}_enabled" name="source_{{ source }}_enabled" type="checkbox" value="true"{% if settings["source_" + source + "_enabled"] %} checked{% endif %}>
+    <p class="hint">Uncheck to stop collecting new messages from this source; what is already archived stays.</p>
+  </div>
+  {% endfor %}
+
   <label for="claude_projects_dir">claude projects dir</label>
   <div>
     <input id="claude_projects_dir" name="claude_projects_dir" value="{{ settings.claude_projects_dir }}">

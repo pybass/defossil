@@ -20,6 +20,8 @@ class Settings(BaseModel):
     explain_effort: Annotated[str, Field(min_length=1)] = "low"
     report_model: Annotated[str, Field(min_length=1)] = "opus"
     report_effort: Annotated[str, Field(min_length=1)] = "xhigh"
+    source_claude_code_enabled: bool = False  # off = stop collecting from Claude Code; the archive keeps what it has
+    source_codex_enabled: bool = False  # off = stop collecting from Codex; the archive keeps what it has
     claude_projects_dir: Path = Path.home() / ".claude" / "projects"
     codex_sessions_dir: Path = Path.home() / ".codex" / "sessions"
     messages_per_review: Annotated[int, Field(ge=1)] = 30  # the review batch size; a review runs only on a full batch

@@ -33,11 +33,13 @@ class MessageService(Service):
     """Owner of the `messages` table; the pipeline worker is what calls the collect and classify steps."""
 
     def collect_messages(self) -> dict[Source, int]:
-        """Rescan every source and map each to the count of newly archived messages.
+        """Rescan every enabled source and map each to the count of newly archived messages; a disabled one is absent.
 
         There is no incremental state: a full rescan is cheap and the source key makes overlapping files safe.
         """
-        return {s: self._collect_source(s) for s in Source}
+        settings = self.core.services.setting.get_settings()
+        enabled = {Source.CLAUDE_CODE: settings.source_claude_code_enabled, Source.CODEX: settings.source_codex_enabled}
+        return {s: self._collect_source(s) for s in Source if enabled[s]}
 
     def classify_new_messages(self) -> None:
         """Judge the `new` messages; the verdict is stamped once and only moves forward (pending -> reviewed)."""
