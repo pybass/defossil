@@ -1,10 +1,13 @@
 """Every ask the app makes: the prompt templates, the filling and parsing, and the log of what each call cost."""
 
 import json
+import logging
 import subprocess
+import threading
 import time
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
 
@@ -13,6 +16,11 @@ from defossil.core.features.ai.backends import build_backend
 from defossil.core.features.ai.models import AiCall, AiResponse, PromptCategory
 from defossil.core.features.correction.models import CATEGORIES, Correction, NewCorrection
 from defossil.core.service import Service
+
+if TYPE_CHECKING:
+    from defossil.core.core import Core
+
+logger = logging.getLogger(__name__)
 
 
 def _load_prompt(name: str) -> str:
@@ -28,7 +36,28 @@ REPORT_PROMPT_TEMPLATE = _load_prompt("report")  # {native_language} filled per 
 
 
 class AiService(Service):
-    """Owner of the `ai_calls` table and of every prompt: it builds each ask, runs and logs the call, parses the answer."""
+    """Owner of the `ai_calls` table and of every prompt: it builds each ask, runs and logs the call, parses the answer.
+
+    Also holds the auto-AI switch — the one flag that gates unattended spending. The review and report workers
+    check it; user-initiated asks (explains) ignore it, so nothing here enforces it on `send_*`.
+    """
+
+    def __init__(self, core: Core) -> None:
+        """Bind to Core; auto AI starts off — not persisted, every launch must be switched on by hand."""
+        super().__init__(core)
+        self._auto_ai = threading.Event()
+
+    def is_auto_ai(self) -> bool:
+        """Whether the background workers may spend money; off pauses reviews and reports, importing is unaffected."""
+        return self._auto_ai.is_set()
+
+    def set_auto_ai(self, enabled: bool) -> None:
+        """Turn auto AI on or off; the caller wakes the workers, this flag only permits them."""
+        logger.info(f"auto ai {'on' if enabled else 'off'}")
+        if enabled:
+            self._auto_ai.set()
+        else:
+            self._auto_ai.clear()
 
     def send_review_prompt(self, texts: dict[int, str]) -> list[NewCorrection]:
         """Review the texts, keyed by message id, and return every correction found tied to its message.

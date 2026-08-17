@@ -1,11 +1,21 @@
-"""Making the report: assembling its window's inputs, asking the backend for the lesson, and owning the stored history."""
+"""Making the report in the background: assembling its window's inputs, asking for the lesson, owning the stored history."""
 
+import logging
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 from defossil.core.errors import InvalidOperationError, NotFoundError
 from defossil.core.features.correction.models import CorrectionCategory
-from defossil.core.features.report.models import Report
+from defossil.core.features.report.models import Report, ReportStatus
 from defossil.core.service import Service
+from defossil.core.worker import Worker
+
+if TYPE_CHECKING:
+    from defossil.core.core import Core
+
+logger = logging.getLogger(__name__)
+
+REPORT_INTERVAL = 300.0  # seconds between report runs; also the retry delay after a failed backend call
 
 # The whole input must stay under ~20-30k words: repeat-counting degrades long before the model's context limit.
 # Corrections need no cap — the window is a fixed count — but a window's message span is unbounded
@@ -17,7 +27,53 @@ PREVIOUS_REPORTS = 2
 
 
 class ReportService(Service):
-    """Owner of the `reports` table; only the pipeline thread makes a report, and one is never regenerated."""
+    """Owner of the `reports` table; only the report worker owned here makes a report, and one is never regenerated."""
+
+    def __init__(self, core: Core) -> None:
+        """Bind to Core; the worker is not started here."""
+        super().__init__(core)
+        self._report_worker = Worker("report", REPORT_INTERVAL, self._report_run)
+        self._report_status: ReportStatus | None = None  # written only by the worker; None until its first run finishes
+
+    def on_start(self) -> None:
+        """Start the report worker."""
+        self._report_worker.start()
+
+    def on_stop(self) -> None:
+        """Let the worker finish the report it is on, then wait for it."""
+        self._report_worker.stop()
+
+    def get_report_status(self) -> ReportStatus | None:
+        """Return what the last report run did, or None while the first one is still running."""
+        return self._report_status
+
+    def report_now(self) -> None:
+        """Cut the between-runs wait short so a report run starts immediately; a no-op while auto AI is off."""
+        logger.info("report: run requested")
+        self._report_worker.wake()
+
+    def _report_run(self) -> None:
+        """One worker run: make due reports if auto AI is on; a failure lands in the status, never on the worker's loop."""
+        if not self.core.services.ai.is_auto_ai():
+            return
+        try:
+            self._report_status = self._make_due_reports()
+        except Exception as e:
+            logger.exception("report: run failed")
+            error = f"{type(e).__name__}: {e}"
+            self._report_status = ReportStatus(reported_at=datetime.now(UTC), reports=0, error=error)
+
+    def _make_due_reports(self) -> ReportStatus:
+        """Make a report for every window of unreported corrections that has filled."""
+        made = 0
+        # Auto AI is re-checked per report, so switching it off mid-run stops after the one in flight.
+        while self.core.services.ai.is_auto_ai() and not self._report_worker.stopping:
+            if self.count_unreported_corrections() < self.core.services.setting.get_settings().corrections_per_report:
+                break
+            report = self.make_report()
+            logger.info(f"report: made report {report.id}")
+            made += 1
+        return ReportStatus(reported_at=datetime.now(UTC), reports=made)
 
     def count_unreported_corrections(self) -> int:
         """Count the corrections past the last report's window — filling `corrections_per_report` triggers the next one."""
@@ -105,7 +161,7 @@ class ReportService(Service):
     def delete_last_report(self) -> int:
         """Delete the newest report and return its id — the one developer exception to the append-only rule.
 
-        Reopens the report's correction window, so the pipeline rebuilds it on a later sweep — how a prompt change
+        Reopens the report's correction window, so the worker rebuilds it on a later run — how a prompt change
         is tried on the same data.
         """
         last = next(iter(self.get_last_reports(1)), None)

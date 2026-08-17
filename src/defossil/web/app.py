@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from defossil.core.core import Core
 from defossil.core.errors import InvalidOperationError, NotFoundError
 from defossil.web.routers import ai, correction, message, report, setting, system
-from defossil.web.templating import templates
+from defossil.web.templating import configure_jinja
 
 
 def create_app(core: Core) -> FastAPI:
@@ -30,9 +30,7 @@ def create_app(core: Core) -> FastAPI:
 
     app = FastAPI(title="defossil", lifespan=lifespan)
     app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
-    # The header is on every page, so its data (toggle state, unread count) comes from template globals, not per-route context.
-    templates.env.globals["pipeline_enabled"] = core.services.pipeline.is_enabled
-    templates.env.globals["unread_reports"] = core.services.report.count_unacknowledged_reports
+    configure_jinja(core)
     app.include_router(report.create_router(core))
     app.include_router(message.create_router(core))
     app.include_router(correction.create_router(core))

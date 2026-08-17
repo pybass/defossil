@@ -5,9 +5,15 @@ from datetime import UTC, date, datetime
 from difflib import SequenceMatcher
 from importlib.metadata import version
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from fastapi.templating import Jinja2Templates
 from markupsafe import Markup, escape
+
+from defossil.core.features.message.models import MessageStatus
+
+if TYPE_CHECKING:
+    from defossil.core.core import Core
 
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")  # Autoescaping is on by default
 
@@ -82,11 +88,35 @@ def _correction_tags(text: str) -> str:
     return _CORRECTION_RE.sub(widget, text)
 
 
-templates.env.filters["dt"] = _format_dt
-templates.env.filters["dur"] = _format_duration
-templates.env.filters["ago"] = _format_ago
-templates.env.filters["hm"] = _format_hm
-templates.env.filters["day"] = _local_date
-templates.env.filters["worddiff"] = _word_diff
-templates.env.filters["correctiontags"] = _correction_tags
-templates.env.globals["version"] = version("defossil")
+def configure_jinja(core: Core) -> None:
+    """Register the filters and the globals bound to the live *core*; called once, before anything renders."""
+
+    def due_work() -> dict[str, int] | None:
+        """Return the counts a worker run is waiting on while auto AI is off; None when nothing is due — the header icon's data.
+
+        A count is included only past its threshold: below a full batch or window, turning auto AI on would do nothing,
+        and the icon must never nudge a no-op.
+        """
+        if core.services.ai.is_auto_ai():
+            return None
+        settings = core.services.setting.get_settings()
+        due = {}
+        pending = core.services.message.count_messages(MessageStatus.PENDING)
+        if pending >= settings.messages_per_review:
+            due["pending"] = pending
+        unreported = core.services.report.count_unreported_corrections()
+        if unreported >= settings.corrections_per_report:
+            due["unreported"] = unreported
+        return due or None
+
+    templates.env.filters["dt"] = _format_dt
+    templates.env.filters["dur"] = _format_duration
+    templates.env.filters["ago"] = _format_ago
+    templates.env.filters["hm"] = _format_hm
+    templates.env.filters["day"] = _local_date
+    templates.env.filters["worddiff"] = _word_diff
+    templates.env.filters["correctiontags"] = _correction_tags
+    templates.env.globals["version"] = version("defossil")
+    templates.env.globals["auto_ai"] = core.services.ai.is_auto_ai
+    templates.env.globals["unread_reports"] = core.services.report.count_unacknowledged_reports
+    templates.env.globals["due_work"] = due_work

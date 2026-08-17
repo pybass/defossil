@@ -3,13 +3,13 @@
 import json
 import logging
 import threading
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from defossil.core.errors import NotFoundError
-from defossil.core.features.message.models import ImportStatus, Message, MessageStatus, Source
+from defossil.core.features.message.models import Message, MessageStatus, Source
 from defossil.core.features.message.sources import claude_code, codex
 from defossil.core.service import Service
+from defossil.core.worker import Worker
 
 if TYPE_CHECKING:
     from defossil.core.core import Core
@@ -46,37 +46,24 @@ class MessageService(Service):
     def __init__(self, core: Core) -> None:
         """Bind to Core; the worker is not started here."""
         super().__init__(core)
-        self._stopping = threading.Event()  # also cuts the between-runs wait short, so stop is not an interval away
-        self._worker: threading.Thread | None = None
+        self._import_worker = Worker("importer", IMPORT_INTERVAL, self.import_messages)
         self._import_lock = threading.Lock()  # import_messages is serial: the worker and any direct caller queue here
-        self._import_status: ImportStatus | None = None  # written only under the lock; None until the first run finishes
 
     def on_start(self) -> None:
-        """Start the one importer worker; it always runs — which sources it reads is settings, not state."""
-        self._worker = threading.Thread(target=self._import_loop, name="importer", daemon=True)
-        self._worker.start()
+        """Start the importer worker; it always runs — which sources it reads is settings, not state."""
+        self._import_worker.start()
 
     def on_stop(self) -> None:
         """Let the worker finish the run it is on, then wait for it."""
-        if self._worker is None:
-            return
-        self._stopping.set()
-        # No timeout: joining is what keeps the worker off the database while Core closes it.
-        self._worker.join()
-        self._worker = None
-
-    def get_import_status(self) -> ImportStatus | None:
-        """Return the last import run, or None while the first one is still running."""
-        return self._import_status
+        self._import_worker.stop()
 
     def import_messages(self) -> None:
-        """Run one import — rescan every enabled source, archive what is new, classify it — and record the status.
+        """Run one import — rescan every enabled source, archive what is new, classify it.
 
-        Serial: concurrent callers queue on the lock. A failure lands in the status, not on the caller; the next run
-        retries. There is no incremental state: a full rescan is cheap and the source key makes overlapping files safe.
+        Serial: concurrent callers queue on the lock. A failure is logged, not raised — the worker's next run retries.
+        There is no incremental state: a full rescan is cheap and the source key makes overlapping files safe.
         """
         with self._import_lock:
-            error: str | None = None
             try:
                 settings = self.core.services.setting.get_settings()
                 enabled = {Source.CLAUDE_CODE: settings.source_claude_code_enabled, Source.CODEX: settings.source_codex_enabled}
@@ -84,16 +71,8 @@ class MessageService(Service):
                     if new := self._import_source(source):
                         logger.info(f"importer: {source} archived {new} new messages")
                 self._classify_new_messages()
-            except Exception as e:
+            except Exception:
                 logger.exception("importer: run failed")
-                error = f"{type(e).__name__}: {e}"
-            self._import_status = ImportStatus(imported_at=datetime.now(UTC), error=error)
-
-    def _import_loop(self) -> None:
-        """Import on the interval until stopped."""
-        while not self._stopping.is_set():
-            self.import_messages()
-            self._stopping.wait(IMPORT_INTERVAL)
 
     def _classify_new_messages(self) -> None:
         """Judge the `new` messages; the verdict is stamped once and only moves forward (pending -> reviewed)."""

@@ -1,4 +1,4 @@
-"""The archive record and the small results the message service hands back."""
+"""The archive record and its source and status labels."""
 
 import json
 import sqlite3
@@ -17,7 +17,7 @@ class Source(StrEnum):
 
 
 class MessageStatus(StrEnum):
-    """Where a message stands in the pipeline; it moves forward once per step, never backward."""
+    """Where a message stands on its way to review; it moves forward once per step, never backward."""
 
     NEW = "new"  # collected, not yet classified
     PENDING = "pending"  # classify passed it; waiting for a review batch
@@ -26,13 +26,6 @@ class MessageStatus(StrEnum):
     TOO_SHORT = "too-short"
     NO_PROSE = "no-prose"
     TOO_LONG = "too-long"
-
-
-class ImportStatus(BaseModel):
-    """The importer's last run; replaced whole, so a reader never sees a half-written one."""
-
-    imported_at: datetime  # when the run finished; the interval to the next one starts here
-    error: str | None = None  # the failure that ended the run, None when it completed; the next run retries
 
 
 class NewMessage(BaseModel):

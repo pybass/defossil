@@ -8,8 +8,8 @@
 {% if last %}
 <p>The last report is <a href="/reports/{{ last.id }}">#{{ last.id }}</a> ({{ last.created_at|dt }}),
   over corrections #{{ last.first_correction_id }} → #{{ last.last_correction_id }}.</p>
-<p class="muted">Deleting it reopens its correction window, so the pipeline rebuilds the report on a later sweep —
-  the way to try a changed report prompt on the same data. Pause the pipeline first if the prompt is not ready yet.</p>
+<p class="muted">Deleting it reopens its correction window, so the report worker rebuilds the report on a later run —
+  the way to try a changed report prompt on the same data. Turn auto AI off first if the prompt is not ready yet.</p>
 <form method="post" action="/system/developer/delete-last-report"
   onsubmit="return confirm('Delete report #{{ last.id }}?')">
   <button class="danger">delete report #{{ last.id }}</button>

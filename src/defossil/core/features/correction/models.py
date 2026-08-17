@@ -1,4 +1,4 @@
-"""The correction record and the category catalog."""
+"""The correction record, the category catalog, and the review worker's status."""
 
 import sqlite3
 from dataclasses import dataclass
@@ -7,6 +7,15 @@ from enum import StrEnum
 from typing import Literal, Self
 
 from pydantic import BaseModel
+
+
+class ReviewStatus(BaseModel):
+    """What the review worker's last run did; replaced whole, so a reader never sees a half-written one."""
+
+    reviewed_at: datetime  # when the run finished; the interval to the next one starts here
+    reviewed: int  # messages whose batches succeeded this run
+    corrections: int  # corrections those batches appended
+    error: str | None = None  # first failure; the run stopped there and the next one retries
 
 
 class CorrectionCategory(StrEnum):

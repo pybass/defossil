@@ -41,7 +41,7 @@ class Db:
     def transaction(self) -> Generator[sqlite3.Connection]:
         """Run one or more statements as a single transaction; every write goes through here, reads need not.
 
-        One at a time, under the lock: the connection is shared by the request threadpool, the pipeline worker and
+        One at a time, under the lock: the connection is shared by the request threadpool, the background workers and
         the explain pool, so a lone autocommit write could join another thread's open transaction and be rolled
         back with it, and overlapping transactions would nest and commit each other's rows.
         """

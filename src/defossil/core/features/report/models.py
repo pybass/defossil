@@ -1,10 +1,18 @@
-"""The report record: one stored lesson over a fixed window of corrections."""
+"""The report record and the report worker's status."""
 
 import sqlite3
 from datetime import datetime
 from typing import Self
 
 from pydantic import BaseModel
+
+
+class ReportStatus(BaseModel):
+    """What the report worker's last run did; replaced whole, so a reader never sees a half-written one."""
+
+    reported_at: datetime  # when the run finished; the interval to the next one starts here
+    reports: int  # reports made this run
+    error: str | None = None  # the failure that ended the run, None when it completed; the next run retries
 
 
 class ReportWindow(BaseModel):

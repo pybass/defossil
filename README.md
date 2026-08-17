@@ -9,7 +9,7 @@ Improve your English by reviewing your own chats with AI coding agents. The name
 
 ## How it works
 
-One background thread — the pipeline — runs the whole chain every 5 minutes: collect → classify → review → report. Nothing else creates corrections or reports, so both tables are append-only and no step races another. The dashboard only shows what the pipeline did.
+Three background workers, one per step, each on its own 5-minute clock: the importer collects and classifies (always on), the review worker reviews, the report worker makes reports. The last two spend money, so they are gated by one in-memory auto-AI switch that starts off on every launch. Each table has a single writer, so corrections and reports are append-only and no step races another; a report window is a correction id range, which stays valid no matter when the report worker runs.
 
 1. **Collect** — archive every message you typed, verbatim, into SQLite, deduplicated by the source's own key. Only real typed text: tool output, command expansions, and programmatic runs are skipped. Sources: Claude Code and Codex CLI; one module per source.
 2. **Classify** — stamp each new message `pending` / `non-english` / `too-short` / `no-prose` / `too-long`, once. Only `pending` goes to review; the text itself is never rewritten.

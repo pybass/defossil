@@ -4,6 +4,9 @@
 <h1>Settings</h1>
 <p class="muted">Stored in the database and read at use time — a change applies without a restart. An emptied field returns to its default.</p>
 <form method="post" action="/system/settings" class="settings-form">
+  <label>data dir</label>
+  <div><code>{{ data_dir }}</code></div>
+
   <label for="native_language">native language</label>
   <div>
     <input id="native_language" name="native_language" value="{{ settings.native_language }}">

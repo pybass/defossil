@@ -8,15 +8,13 @@ from defossil.core.features.correction.service import CorrectionService
 from defossil.core.features.message.service import MessageService
 from defossil.core.features.report.service import ReportService
 from defossil.core.features.setting.service import SettingService
-from defossil.core.pipeline import Pipeline
 from defossil.core.service import Service
 
 
 class Services:
     """Every feature service in one namespace, so `core.*` stays the storage and `core.services.*` the work.
 
-    Plain fields, listed by hand: a service is added here and nowhere else. The pipeline sits last so it starts
-    after every service it drives and stops before them.
+    Plain fields, listed by hand: a service is added here and nowhere else.
     """
 
     def __init__(self, core: Core) -> None:
@@ -26,7 +24,6 @@ class Services:
         self.message = MessageService(core)
         self.correction = CorrectionService(core)
         self.report = ReportService(core)
-        self.pipeline = Pipeline(core)
         # Read off the fields above, so a service is still added in one place.
         self._services: list[Service] = [value for value in vars(self).values() if isinstance(value, Service)]
 
@@ -45,7 +42,7 @@ class Core:
     """A container, not a layer with behaviour: it owns the storage and the feature services over it.
 
     A client builds one Core and calls `core.services.correction.get_corrections(...)`; nothing here forwards that call.
-    Core is also the lifecycle: `start` is what lets the pipeline run in the background, and only the server calls it.
+    Core is also the lifecycle: `start` is what lets the workers run in the background, and only the server calls it.
     """
 
     # Where the data lives without --data-dir. A fixed path, never read from the environment:
@@ -55,6 +52,7 @@ class Core:
     def __init__(self, data_dir: Path) -> None:
         """Open the database under *data_dir* and build the services over it. Nothing runs yet."""
         data_dir.mkdir(parents=True, exist_ok=True)
+        self.data_dir = data_dir.resolve()
         self.db = Db(data_dir / "defossil.db")
         self.services = Services(self)
 
@@ -63,6 +61,6 @@ class Core:
         self.services.start_all()
 
     def stop(self) -> None:
-        """Stop the services, then close the database — in that order, or the pipeline outlives its connection."""
+        """Stop the services, then close the database — in that order, or a worker outlives its connection."""
         self.services.stop_all()
         self.db.close()

@@ -17,10 +17,27 @@
     {% set unread = unread_reports() %}
     <a href="/reports"{% if request.url.path.startswith("/reports") %} class="active"{% endif %}>reports{% if unread %}<span class="unread">{{ unread }}</span>{% endif %}</a>
     <a href="/system" class="sep{% if request.url.path.startswith("/system") %} active{% endif %}">system</a>
-    <button type="button" class="pipeline-toggle{{ ' on' if pipeline_enabled() }}"
-            title="on: new messages are collected, reviewed, and turned into reports on their own; off: everything is paused">
-      auto-review<span class="track"><span class="knob"></span></span>
+    <button type="button" class="ai-toggle{{ ' on' if auto_ai() }}"
+            title="on: pending messages are reviewed and turned into reports on their own; off: AI work is paused, importing keeps running">
+      auto ai<span class="track"><span class="knob"></span></span>
     </button>
+    {% set due = due_work() %}
+    {% if due %}
+    <a class="due" href="/system/auto-ai" aria-label="work is waiting for auto AI">
+      <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
+        <g fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M13.5 5v8a1.5 1.5 0 0 1-1.5 1.5H5"/>
+          <rect x="1.5" y="1.5" width="9.5" height="10.5" rx="1"/>
+          <path d="M4 4.75h4.5M4 7.25h4.5M4 9.75h3"/>
+        </g>
+      </svg>
+      <span class="due-pop">
+        {% if due.pending %}<span>{{ due.pending }} message{{ 's' if due.pending != 1 }} ready for review</span>{% endif %}
+        {% if due.unreported %}<span>{{ due.unreported }} correction{{ 's' if due.unreported != 1 }} ready for a report</span>{% endif %}
+        <span class="due-hint">Auto AI is off — turn it on to run them.</span>
+      </span>
+    </a>
+    {% endif %}
   </nav>
 </header>
 <main>
@@ -31,14 +48,14 @@
   <a href="https://github.com/pybass/defossil" target="_blank" rel="noopener">github &nearr;</a>
 </footer>
 <script>
-for (const toggle of document.querySelectorAll('.pipeline-toggle')) {
+for (const toggle of document.querySelectorAll('.ai-toggle')) {
   toggle.addEventListener('click', async () => {
-    const res = await fetch('/system/pipeline/toggle', {method: 'POST'});
+    const res = await fetch('/system/auto-ai/toggle', {method: 'POST'});
     if (!res.ok) { alert(await res.text()); return; }
     const on = (await res.json()).enabled;
-    for (const other of document.querySelectorAll('.pipeline-toggle')) other.classList.toggle('on', on);
-    // The pipeline page's state and countdown texts are server-rendered; re-render them.
-    if (location.pathname === '/system/pipeline') location.reload();
+    for (const other of document.querySelectorAll('.ai-toggle')) other.classList.toggle('on', on);
+    // The auto-AI page's state and countdown texts are server-rendered; re-render them.
+    if (location.pathname === '/system/auto-ai') location.reload();
   });
 }
 </script>

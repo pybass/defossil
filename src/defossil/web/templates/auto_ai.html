@@ -1,0 +1,55 @@
+{% extends "system_base.html" %}
+{% block title %}auto ai — defossil{% endblock %}
+{% block system_content %}
+<h1>Auto AI</h1>
+<p class="muted">Two workers spend money on their own: one reviews batches of {{ batch_size }} pending messages, one makes a report per {{ window }} corrections. Importing runs on its own, always.</p>
+<dl class="facts">
+  <dt>state</dt>
+  <dd>
+    <button type="button" class="ai-toggle{{ ' on' if auto_ai() }}" title="toggle auto AI">
+      <span class="track"><span class="knob"></span></span>
+    </button>
+    {% if auto_ai() %}on — reviews and reports run on their own
+    <form class="inline" method="post" action="/system/auto-ai/run"><button>run now</button></form>
+    {% else %}off — paused; no reviews, no reports; importing keeps running{% endif %}
+  </dd>
+  <dt>last review run</dt>
+  <dd>
+    {% if review %}
+    {{ review.reviewed_at | ago }} —
+    {% if review.error %}
+    <span class="badge error">failed</span> {{ review.error }}
+    {% else %}
+    {{ review.reviewed }} reviewed, {{ review.corrections }} correction{{ 's' if review.corrections != 1 }}
+    {% endif %}
+    {% if auto_ai() %}; next run in ~{{ next_review_in | dur }}{% endif %}
+    {% elif auto_ai() %}
+    first run still running
+    {% else %}
+    no run yet
+    {% endif %}
+  </dd>
+  <dt>last report run</dt>
+  <dd>
+    {% if report %}
+    {{ report.reported_at | ago }} —
+    {% if report.error %}
+    <span class="badge error">failed</span> {{ report.error }}
+    {% else %}
+    {{ report.reports }} report{{ 's' if report.reports != 1 }}
+    {% endif %}
+    {% if auto_ai() %}; next run in ~{{ next_report_in | dur }}{% endif %}
+    {% elif auto_ai() %}
+    first run still running
+    {% else %}
+    no run yet
+    {% endif %}
+  </dd>
+  <dt>next review</dt>
+  <dd><span class="meter"><span style="width: {{ review_pct }}%"></span></span>
+    {{ pending }} / {{ batch_size }} messages pending — a review runs on a full batch</dd>
+  <dt>next report</dt>
+  <dd><span class="meter"><span style="width: {{ report_pct }}%"></span></span>
+    {{ unreported }} / {{ window }} corrections</dd>
+</dl>
+{% endblock %}

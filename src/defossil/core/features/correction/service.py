@@ -1,49 +1,102 @@
-"""Running one review batch, and owning the stored corrections it appends."""
+"""Reviewing pending messages in the background, and owning the stored corrections that appends."""
 
 import json
 import logging
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from defossil.core.errors import NotFoundError
-from defossil.core.features.correction.models import Correction, CorrectionCategory
+from defossil.core.errors import AiError, NotFoundError
+from defossil.core.features.correction.models import Correction, CorrectionCategory, ReviewStatus
 from defossil.core.features.message.models import Message
 from defossil.core.features.report.models import ReportWindow
 from defossil.core.service import Service
+from defossil.core.worker import Worker
 
 if TYPE_CHECKING:
     from defossil.core.core import Core
 
 logger = logging.getLogger(__name__)
 
+REVIEW_INTERVAL = 300.0  # seconds between review runs; also the retry delay after a failed backend call
+
 
 class CorrectionService(Service):
-    """Owner of the `corrections` table: the review batch that fills it, and the aggregates.
+    """Owner of the `corrections` table: the review worker that fills it, and the aggregates.
 
     Rows are append-only — a message is reviewed once, ever — so correction ids are stable and a report's
-    stored id range stays true. Only the pipeline thread calls `review_messages`; the explain pool owned
-    here holds the only other threads that talk to the backend, serving queued asks concurrently.
+    stored id range stays true. Only the review worker owned here calls `review_messages`; the explain pool's
+    threads are the only others that talk to the backend, serving queued asks concurrently.
     """
 
     def __init__(self, core: Core) -> None:
-        """Bind to Core; the explain pool is not started here."""
+        """Bind to Core; neither the worker nor the explain pool is started here."""
         super().__init__(core)
+        self._review_worker = Worker("review", REVIEW_INTERVAL, self._review_run)
+        self._review_status: ReviewStatus | None = None  # written only by the worker; None until its first run finishes
         self._explain_pending: set[int] = set()  # correction ids queued or being asked right now
         self._explain_lock = threading.Lock()
         self._explain_pool: ThreadPoolExecutor | None = None
 
     def on_start(self) -> None:
-        """Start the explain pool."""
+        """Start the review worker and the explain pool."""
+        self._review_worker.start()
         self._explain_pool = ThreadPoolExecutor(max_workers=10, thread_name_prefix="explain")  # backend calls at once
 
     def on_stop(self) -> None:
-        """Drop the queued asks and wait out the running ones — the pool must be off the database before Core closes it."""
-        if self._explain_pool is None:
+        """Let the worker finish the batch it is on, drop the queued asks and wait out the running ones."""
+        self._review_worker.stop()
+        if self._explain_pool is not None:
+            # No timeout, same as the worker: the pool must be off the database before Core closes it.
+            self._explain_pool.shutdown(wait=True, cancel_futures=True)
+            self._explain_pool = None
+            self._explain_pending.clear()  # cancelled asks never reach the task's cleanup
+
+    def get_review_status(self) -> ReviewStatus | None:
+        """Return what the last review run did, or None while the first one is still running."""
+        return self._review_status
+
+    def review_now(self) -> None:
+        """Cut the between-runs wait short so a review run starts immediately; a no-op while auto AI is off."""
+        logger.info("review: run requested")
+        self._review_worker.wake()
+
+    def _review_run(self) -> None:
+        """One worker run: review if auto AI is on; a failure lands in the status, never on the worker's loop."""
+        if not self.core.services.ai.is_auto_ai():
             return
-        self._explain_pool.shutdown(wait=True, cancel_futures=True)
-        self._explain_pool = None
-        self._explain_pending.clear()  # cancelled asks never reach the task's cleanup
+        try:
+            self._review_status = self._review_pending()
+        except Exception as e:
+            logger.exception("review: run failed")
+            error = f"{type(e).__name__}: {e}"
+            self._review_status = ReviewStatus(reviewed_at=datetime.now(UTC), reviewed=0, corrections=0, error=error)
+
+    def _review_pending(self) -> ReviewStatus:
+        """Review full batches of pending messages until fewer than a batch remain or a backend call fails."""
+        services = self.core.services
+        reviewed = corrections = 0
+        error: str | None = None
+        # Auto AI is re-checked per batch, so switching it off mid-run stops after the batch in flight.
+        while services.ai.is_auto_ai() and not self._review_worker.stopping:
+            # The batch size is re-read per batch, so an edit applies without a restart — but read once per
+            # iteration: two reads could straddle an edit and desync the fetch limit from the full-batch check.
+            batch_size = services.setting.get_settings().messages_per_review
+            batch = services.message.get_pending_messages(batch_size)
+            if len(batch) < batch_size:
+                break  # a remainder below a full batch waits for more messages
+            try:
+                added = self.review_messages(batch)
+            except AiError as e:
+                # Resending now would hammer a down backend; the next run retries.
+                logger.exception("review: batch failed")
+                error = str(e)
+                break
+            reviewed += len(batch)
+            corrections += added
+            logger.info(f"review: reviewed {len(batch)} messages, {added} corrections")
+        return ReviewStatus(reviewed_at=datetime.now(UTC), reviewed=reviewed, corrections=corrections, error=error)
 
     def request_explanation(self, correction_id: int, question: str) -> None:
         """Queue one correction for the explain pool; a repeat ask while one is queued or running is a no-op."""

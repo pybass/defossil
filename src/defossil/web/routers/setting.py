@@ -20,7 +20,8 @@ def create_router(core: Core) -> APIRouter:
     @router.get("/system/settings", response_class=HTMLResponse)
     def settings_page(request: Request) -> HTMLResponse:
         """Show the form over the current values; a stored value and a default look the same."""
-        return templates.TemplateResponse(request, "settings.html", {"settings": core.services.setting.get_settings()})
+        context = {"settings": core.services.setting.get_settings(), "data_dir": core.data_dir}
+        return templates.TemplateResponse(request, "settings.html", context)
 
     @router.post("/system/settings")
     async def settings_save(request: Request) -> RedirectResponse:
