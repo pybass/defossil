@@ -22,7 +22,6 @@ class Worker:
         return self._stopping.is_set()
 
     def start(self) -> None:
-        """Start the thread."""
         self._thread = threading.Thread(target=self._run, name=self._name, daemon=True)
         self._thread.start()
 

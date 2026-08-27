@@ -46,5 +46,4 @@ class Message(NewMessage):
 
     @classmethod
     def from_row(cls, row: sqlite3.Row) -> Self:
-        """Rebuild a message from its row in the `messages` table."""
         return cls.model_validate(dict(row) | {"meta": json.loads(row["meta"])})

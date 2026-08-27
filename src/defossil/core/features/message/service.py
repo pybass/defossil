@@ -82,7 +82,6 @@ class MessageService(Service):
             conn.executemany("UPDATE messages SET status = ? WHERE id = ?", [(s, mid) for mid, s in statuses.items()])
 
     def get_message(self, message_id: int) -> Message:
-        """Return one archived message."""
         row = self.db.conn.execute("SELECT * FROM messages WHERE id = ?", (message_id,)).fetchone()
         if row is None:
             raise NotFoundError(f"No message {message_id}")

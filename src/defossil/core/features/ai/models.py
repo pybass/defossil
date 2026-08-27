@@ -45,5 +45,4 @@ class AiCall(BaseModel):
 
     @classmethod
     def from_row(cls, row: sqlite3.Row) -> Self:
-        """Rebuild a call from its row in the `ai_calls` table."""
         return cls.model_validate(dict(row))

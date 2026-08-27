@@ -203,7 +203,6 @@ class CorrectionService(Service):
         return [Correction.from_row(row) for row in rows]
 
     def get_correction(self, correction_id: int) -> Correction:
-        """Return one stored correction."""
         row = self.db.conn.execute(
             "SELECT c.*, m.typed_at FROM corrections c JOIN messages m ON m.id = c.message_id WHERE c.id = ?",
             (correction_id,),

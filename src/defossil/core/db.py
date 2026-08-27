@@ -26,7 +26,6 @@ class Db:
         self._write_lock = threading.Lock()
 
     def close(self) -> None:
-        """Close the connection."""
         self.conn.close()
 
     def _migrate(self) -> None:

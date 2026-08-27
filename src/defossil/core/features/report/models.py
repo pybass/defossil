@@ -38,5 +38,4 @@ class Report(BaseModel):
 
     @classmethod
     def from_row(cls, row: sqlite3.Row) -> Self:
-        """Rebuild a report from its row in the `reports` table."""
         return cls.model_validate(dict(row))

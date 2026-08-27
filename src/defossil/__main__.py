@@ -12,7 +12,6 @@ from defossil.web.app import create_app
 
 
 def main() -> None:
-    """Parse arguments and run the web dashboard."""
     parser = argparse.ArgumentParser(prog="defossil", description="Improve your English by reviewing your chats with AI agents.")
     parser.add_argument("--version", action="version", version=f"%(prog)s {version('defossil')}")
     parser.add_argument("--port", type=int, default=3677, help="dashboard port on 127.0.0.1")

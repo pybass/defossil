@@ -172,7 +172,6 @@ class ReportService(Service):
         return last.id
 
     def get_report(self, report_id: int) -> Report:
-        """Return one stored report."""
         row = self.db.conn.execute("SELECT * FROM reports WHERE id = ?", (report_id,)).fetchone()
         if row is None:
             raise NotFoundError(f"No report {report_id}")

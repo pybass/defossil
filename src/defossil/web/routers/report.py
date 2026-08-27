@@ -12,7 +12,6 @@ from defossil.web.templating import templates
 
 
 def create_router(core: Core) -> APIRouter:
-    """Build the router with *core* bound to its routes."""
     router = APIRouter()
 
     @router.get("/")
