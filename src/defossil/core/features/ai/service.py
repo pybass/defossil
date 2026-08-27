@@ -7,7 +7,7 @@ import threading
 import time
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, assert_never
 
 from pydantic import ValidationError
 
@@ -140,6 +140,8 @@ class AiService(Service):
                 model, effort = settings.explain_model, settings.explain_effort
             case PromptCategory.REPORT:
                 model, effort = settings.report_model, settings.report_effort
+            case _:
+                assert_never(category)
         backend = build_backend(settings.ai_backend)
         started_at = datetime.now(UTC)
         started = time.monotonic()
@@ -151,7 +153,7 @@ class AiService(Service):
             error = f"{type(e).__name__}: {e}"
             raise
         finally:
-            metrics = response or AiResponse(reply="")
+            metrics = response if response is not None else AiResponse(reply="")
             with self.db.transaction() as conn:
                 conn.execute(
                     """
@@ -166,7 +168,7 @@ class AiService(Service):
                         metrics.model or model,  # what actually answered when the CLI says, the requested one otherwise
                         effort,
                         prompt,
-                        response.reply if response else None,
+                        response.reply if response is not None else None,
                         metrics.input_tokens,
                         metrics.output_tokens,
                         metrics.cost_usd,

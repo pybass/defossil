@@ -3,7 +3,7 @@
 import json
 import logging
 import threading
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, assert_never
 
 from defossil.core.errors import NotFoundError
 from defossil.core.features.message.models import Message, MessageStatus, Source
@@ -166,6 +166,8 @@ class MessageService(Service):
                 messages = claude_code.collect_messages(settings.claude_projects_dir)
             case Source.CODEX:
                 messages = codex.collect_messages(settings.codex_sessions_dir)
+            case _:
+                assert_never(source)
         rows = [(m.source, m.source_key, m.typed_at.isoformat(), m.text, json.dumps(m.meta)) for m in messages]
         with self.db.transaction() as conn:
             cursor = conn.executemany(

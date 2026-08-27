@@ -1,6 +1,3 @@
-# ============================================================================
-#  Project metadata
-# ============================================================================
 [project]
 name = "defossil"
 version = "0.0.5"
@@ -21,7 +18,7 @@ dependencies = [
     "jinja2>=3.1.6",
     "markupsafe>=3.0.3",
     "pydantic>=2.13.4",
-    "uvicorn>=0.52.3",
+    "uvicorn>=0.52.4",
 ]
 
 [project.urls]
@@ -31,44 +28,26 @@ Issues = "https://github.com/pybass/defossil/issues"
 [project.scripts]
 defossil = "defossil.__main__:main"
 
-# ============================================================================
-#  Build system
-# ============================================================================
 [build-system]
-requires = ["uv_build>=0.12,<0.13"]  # pinned: backends live outside uv.lock — an open range breaks reproducible tag builds
+requires = ["uv_build>=0.12,<0.13"]  # pinned: build backends live outside uv.lock
 build-backend = "uv_build"
 
-
-# ============================================================================
-#  Development dependencies — grouped by role (mirrors the tool sections below)
-# ============================================================================
 [dependency-groups]
 dev = [
-    # Linting & formatting
-    "ruff~=0.16.3",
-    # Type checking
+    "ruff~=0.16.4",
     "mypy~=2.3.1",
-    # Security & vulnerability audit
+    "pytest~=9.1.1",
+    "pytest-xdist~=3.8.0",
     "pip-audit~=2.10.1",
-    # Dependency hygiene — imports vs declared deps
-    "deptry~=0.25.1",
-    # Git pre-commit hooks
     "pre-commit~=4.6.2",
-    # Dev-server auto-restart (justfile `dev`)
-    "watchfiles~=1.2.0",
+    "watchfiles~=1.2.0",  # justfile `dev` auto-restart
 ]
 
-
-# ============================================================================
-#  uv
-# ============================================================================
 [tool.uv]
-required-version = ">=0.12"  # refuse a uv too old for the lock/sync behaviors the justfile relies on
+required-version = ">=0.11"  # refuse a uv too old for the index/publish semantics we rely on
+publish-url = "https://upload.pypi.org/legacy/"
+check-url = "https://pypi.org/simple/"  # lets a failed release re-run: uploaded files are skipped
 
-
-# ============================================================================
-#  Ruff — linting & formatting
-# ============================================================================
 [tool.ruff]
 line-length = 130
 target-version = "py314"
@@ -76,51 +55,63 @@ target-version = "py314"
 [tool.ruff.lint]
 select = ["ALL"]
 ignore = [
-    # --- Ecosystem / tool conflicts ---
-    "COM812",   # redundant and incompatible with ruff format
-    "D203",     # one-blank-line-before-class — conflicts with D211
-    "D213",     # multi-line-summary-second-line — conflicts with D212
-
-    # --- Stylistic preferences ---
-    "PLC0414",  # useless-import-alias — `import x as x` is our explicit re-export marker
-    "RET503",   # implicit-return — explicit None returns are noisy
-    "G004",     # f-strings in logging — accepted
-
-    # --- Categories that fight our coding style ---
-    "FIX",      # flake8-fixme — TODOs are fine; tracked elsewhere
+    # Tool conflicts
+    "COM812",   # trailing-comma — handled by ruff formatter
+    "ISC001",   # implicit-string-concat — conflicts with ruff formatter
+    "D203",     # conflicts with D211
+    "D213",     # conflicts with D212
+    # Style preferences
+    "PLC0414",  # `import x as x` is our re-export marker
+    "RET503",   # explicit None returns are noisy
+    "G004",     # f-strings in logging are fine
+    "PT001", "PT006", "PT007", "PT023",  # cosmetic pytest-style rules
+    # Categories that fight our style
+    "FIX",      # TODOs are fine
     "FBT",      # boolean-trap — too restrictive
-    "EM",       # error-message strings — inline messages accepted
-    "CPY",      # flake8-copyright — no copyright headers
-    "TC",       # flake8-type-checking — TYPE_CHECKING blocks save import time we don't care about; cost: import noise + broken runtime annotations (pydantic)
+    "EM",       # inline error messages are fine
+    "CPY",      # no copyright headers — per-file headers add nothing
+    "TC",       # TYPE_CHECKING blocks: import noise, break pydantic runtime annotations
     "TRY003",   # raise-vanilla-args — too noisy
-    "C901",     # complex-structure — judgment call
-
-    # --- Soft pylint thresholds ---
-    "PLR0911",  # too-many-return-statements
-    "PLR0912",  # too-many-branches
-    "PLR0913",  # too-many-arguments
-    "PLR2004",  # magic-value-comparison
-
-    # --- Async edge case ---
-    "ASYNC109", # async-function-with-timeout — debatable, off
+    "C901",     # complexity — judgment call
+    "PLR0911", "PLR0912", "PLR0913", "PLR0917", "PLR2004",  # soft pylint thresholds
+    "TD002", "TD003",  # TODO author/link — optional
+    "ASYNC109", # async-function-with-timeout — debatable
+    "D1",       # no docstring-coverage mandate — a docstring is written only where it adds contract
 ]
+
+[tool.ruff.lint.pep8-naming]
+classmethod-decorators = ["pydantic.field_validator"]  # N805: cls is correct without @classmethod
+
+[tool.ruff.lint.pydocstyle]
+ignore-decorators = ["typing.override", "typing.overload"]  # the base class / overload stub carries the contract
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["ANN", "S", "SLF"]  # tests skip annotation, assert/security, and private-access rules
 
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
 docstring-code-format = true
 
-
-# ============================================================================
-#  Type checking — mypy (strict)
-# ============================================================================
 [tool.mypy]
 python_version = "3.14"
 strict = true
+warn_unreachable = true
+enable_error_code = ["redundant-expr", "possibly-undefined", "truthy-bool", "exhaustive-match", "unused-awaitable"]
 
+[[tool.mypy.overrides]]
+module = "tests.*"  # relaxed so pytest fixtures don't fight you
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_decorators = false
+disallow_untyped_calls = false
+warn_unused_ignores = false
 
-# ============================================================================
-#  deptry — imports vs declared deps
-# ============================================================================
-[tool.deptry.per_rule_ignores]
-DEP002 = ["jinja2"]  # used only through fastapi.templating (an optional fastapi extra), never imported directly
+[tool.codespell]
+skip = "uv.lock,.git,.venv,.mypy_cache,.ruff_cache,.pytest_cache,*.min.js"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers --strict-config --import-mode=importlib"
+xfail_strict = true
+filterwarnings = ["error"]  # warnings are failures; targeted ignores go after "error"

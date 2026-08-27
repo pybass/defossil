@@ -1,18 +1,17 @@
 # Python
 __pycache__
-*.egg-info
-pip-wheel-metadata
 
 # Build artifacts
 /dist
-/build
 
 # Tool caches
+.pytest_cache
 .mypy_cache
 .ruff_cache
 
 # Environments
 .venv
+.env
 
 # IDE
 .idea
@@ -21,9 +20,8 @@ pip-wheel-metadata
 # OS
 .DS_Store
 
-# Personal dev scratch (notes, configs, temp code snippets) — never committed
+# Personal dev scratch (notes, configs, temp code snippets)
 tmp/
-CLAUDE.md
 
 # Local data (SQLite database)
 data/
