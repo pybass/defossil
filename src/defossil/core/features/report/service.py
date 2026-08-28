@@ -1,5 +1,3 @@
-"""Making the report in the background: assembling its window's inputs, asking for the lesson, owning the stored history."""
-
 import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
@@ -33,10 +31,9 @@ class ReportService(Service):
         """Bind to Core; the worker is not started here."""
         super().__init__(core)
         self._report_worker = Worker("report", REPORT_INTERVAL, self._report_run)
-        self._report_status: ReportStatus | None = None  # written only by the worker; None until its first run finishes
+        self._report_status: ReportStatus | None = None  # written only by the worker; None until a run with auto AI on finishes
 
     def on_start(self) -> None:
-        """Start the report worker."""
         self._report_worker.start()
 
     def on_stop(self) -> None:
@@ -44,7 +41,7 @@ class ReportService(Service):
         self._report_worker.stop()
 
     def get_report_status(self) -> ReportStatus | None:
-        """Return what the last report run did, or None while the first one is still running."""
+        """Return what the last report run did; None until a run with auto AI on has finished."""
         return self._report_status
 
     def report_now(self) -> None:

@@ -26,7 +26,6 @@ class ClaudeBackend:
     """Answers a prompt by running the `claude` CLI in print mode."""
 
     def send_prompt(self, prompt: str, model: str, effort: str) -> AiResponse:
-        """Run `claude -p` over *prompt* with the given model and effort."""
         claude_bin = shutil.which("claude")
         if claude_bin is None:
             raise RuntimeError("claude CLI not found in PATH")
@@ -58,7 +57,6 @@ class CodexBackend:
     """Answers a prompt by running the `codex` CLI non-interactively; the CLI reports no usable usage metadata."""
 
     def send_prompt(self, prompt: str, model: str, effort: str) -> AiResponse:
-        """Run `codex exec` over *prompt*; tokens and cost stay None — only the machine-readable answer file comes back."""
         codex_bin = shutil.which("codex")
         if codex_bin is None:
             raise RuntimeError("codex CLI not found in PATH")

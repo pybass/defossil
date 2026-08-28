@@ -1,5 +1,3 @@
-"""Reviewing pending messages in the background, and owning the stored corrections that appends."""
-
 import json
 import logging
 import threading
@@ -26,21 +24,20 @@ class CorrectionService(Service):
     """Owner of the `corrections` table: the review worker that fills it, and the aggregates.
 
     Rows are append-only — a message is reviewed once, ever — so correction ids are stable and a report's
-    stored id range stays true. Only the review worker owned here calls `review_messages`; the explain pool's
-    threads are the only others that talk to the backend, serving queued asks concurrently.
+    stored id range stays true. Only the review worker owned here calls `review_messages`; the explain pool
+    serves queued asks concurrently beside it.
     """
 
     def __init__(self, core: Core) -> None:
         """Bind to Core; neither the worker nor the explain pool is started here."""
         super().__init__(core)
         self._review_worker = Worker("review", REVIEW_INTERVAL, self._review_run)
-        self._review_status: ReviewStatus | None = None  # written only by the worker; None until its first run finishes
+        self._review_status: ReviewStatus | None = None  # written only by the worker; None until a run with auto AI on finishes
         self._explain_pending: set[int] = set()  # correction ids queued or being asked right now
         self._explain_lock = threading.Lock()
         self._explain_pool: ThreadPoolExecutor | None = None
 
     def on_start(self) -> None:
-        """Start the review worker and the explain pool."""
         self._review_worker.start()
         self._explain_pool = ThreadPoolExecutor(max_workers=10, thread_name_prefix="explain")  # backend calls at once
 
@@ -54,7 +51,7 @@ class CorrectionService(Service):
             self._explain_pending.clear()  # cancelled asks never reach the task's cleanup
 
     def get_review_status(self) -> ReviewStatus | None:
-        """Return what the last review run did, or None while the first one is still running."""
+        """Return what the last review run did; None until a run with auto AI on has finished."""
         return self._review_status
 
     def review_now(self) -> None:
@@ -141,7 +138,7 @@ class CorrectionService(Service):
         """Send one batch, append its corrections and stamp the messages reviewed in one transaction; returns the count.
 
         A failed call or an unreadable answer raises AiError and stores nothing — the messages stay pending; the raw
-        reply is in the ai query log either way.
+        reply is in the ai calls log either way.
         """
         answers = self.core.services.ai.send_review_prompt({message.id: message.text for message in messages})
         rows = [(c.message_id, c.category, c.original, c.corrected, c.explanation) for c in answers]

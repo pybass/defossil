@@ -1,5 +1,3 @@
-"""The settings record: one typed snapshot of the `settings` table; defaults live here, not in the database."""
-
 import sqlite3
 from pathlib import Path
 from typing import Annotated, Self

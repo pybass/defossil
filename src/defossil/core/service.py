@@ -1,5 +1,3 @@
-"""The shape every feature service shares: a handle on Core, and through it on everything else."""
-
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:  # Core builds the services, so importing it for real here would close a cycle
@@ -11,7 +9,6 @@ class Service:
     """Base of every feature service: it reaches the storage and its neighbours through Core."""
 
     def __init__(self, core: Core) -> None:
-        """Bind the service to the Core that built it."""
         self.core = core
 
     @property

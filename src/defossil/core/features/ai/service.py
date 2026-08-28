@@ -1,5 +1,3 @@
-"""Every ask the app makes: the prompt templates, the filling and parsing, and the log of what each call cost."""
-
 import json
 import logging
 import subprocess

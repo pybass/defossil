@@ -30,9 +30,9 @@ class Report(BaseModel):
     id: int
     created_at: datetime
     first_message_id: int  # the message carrying the window's first correction; inclusive, like every bound here
-    last_message_id: int  # the message carrying the window's last correction; the next window starts after it
+    last_message_id: int  # the message carrying the window's last correction
     first_correction_id: int
-    last_correction_id: int  # the range holds exactly corrections_per_report corrections
+    last_correction_id: int  # the next window starts after it; the range holds exactly corrections_per_report corrections
     text: str  # the markdown the LLM wrote, verbatim
     acknowledged: bool  # the user pressed "got it": the lesson is read
 

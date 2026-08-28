@@ -1,5 +1,3 @@
-"""Everything done to the archive: filling it from the sources, reading it, and judging what may be reviewed."""
-
 import json
 import logging
 import threading

@@ -1,5 +1,3 @@
-"""Reading and replacing the stored settings."""
-
 from defossil.core.features.setting.models import Settings
 from defossil.core.service import Service
 
