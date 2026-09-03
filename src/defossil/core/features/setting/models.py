@@ -24,6 +24,16 @@ class Settings(BaseModel):
     codex_sessions_dir: Path = Path.home() / ".codex" / "sessions"
     messages_per_review: Annotated[int, Field(ge=1)] = 30  # the review batch size; a review runs only on a full batch
     corrections_per_report: Annotated[int, Field(ge=1)] = 300  # the report window size; filling it makes a report
+    # Report section sizes, stated in the report prompt as ceilings: items are the habits, patterns, or phrases a section
+    # lists, examples the wrong -> right pairs under one of them. The model shows fewer when the data has fewer.
+    report_shame_items: Annotated[int, Field(ge=1)] = 4
+    report_shame_examples: Annotated[int, Field(ge=2)] = 2
+    report_repeated_items: Annotated[int, Field(ge=1)] = 4
+    report_repeated_examples: Annotated[int, Field(ge=2)] = 3
+    report_grammar_examples: Annotated[int, Field(ge=2)] = 4
+    report_native_items: Annotated[int, Field(ge=1)] = 6
+    report_shorter_items: Annotated[int, Field(ge=1)] = 5
+    report_focus_examples: Annotated[int, Field(ge=2)] = 3
     page_size: Annotated[int, Field(ge=1)] = 300  # rows per page on the web list pages
 
     @classmethod

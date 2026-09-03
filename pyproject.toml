@@ -1,6 +1,6 @@
 [project]
 name = "defossil"
-version = "0.0.5"
+version = "0.0.6"
 description = "Improve your English by reviewing your own chats with AI coding agents."
 readme = "README.md"
 authors = [{ name = "pybass" }]
@@ -17,7 +17,7 @@ dependencies = [
     "fastapi==0.141.1",  # == pin: nothing imports an app, upgrades are deliberate edits
     "jinja2==3.1.6",
     "markupsafe==3.0.3",
-    "pydantic==2.13.4",
+    "pydantic==2.13.5",
     "uvicorn==0.52.4",
 ]
 

@@ -30,7 +30,7 @@ Run `defossil`, open http://127.0.0.1:3677.
 
 ## Settings
 
-The data root cannot live in the database it locates, so it is the one setting outside it: `~/.local/share/defossil` by default, overridden only by `--data-dir`. Everything else — native language, AI backend, model and effort per prompt category, source roots, batch sizes, page size — lives in the `settings` table, is edited on the dashboard's settings page, and is read at use time, so a change applies without a restart.
+The data root cannot live in the database it locates, so it is the one setting outside it: `~/.local/share/defossil` by default, overridden only by `--data-dir`. Everything else — native language, AI backend, model and effort per prompt category, source roots, batch sizes, report section sizes, page size — lives in the `settings` table, is edited on the dashboard's settings page, and is read at use time, so a change applies without a restart.
 
 ## Non-goals
 

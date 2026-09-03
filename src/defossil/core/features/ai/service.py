@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 import subprocess
 import threading
 import time
@@ -30,7 +31,7 @@ def _load_prompt(name: str) -> str:
 # Filled with replace, not str.format — the templates' JSON examples are full of literal braces.
 REVIEW_PROMPT_TEMPLATE = _load_prompt("review")  # {native_language} and {categories} filled per call
 EXPLAIN_PROMPT_TEMPLATE = _load_prompt("explain")  # {native_language} filled per call
-REPORT_PROMPT_TEMPLATE = _load_prompt("report")  # {native_language} filled per call
+REPORT_PROMPT_TEMPLATE = _load_prompt("report")  # every {name} is the Settings field of that name, filled per call
 
 
 class AiService(Service):
@@ -123,7 +124,8 @@ class AiService(Service):
 
     def get_report_prompt(self) -> str:
         """Return the report prompt as it is sent; the window JSON is appended per ask."""
-        return REPORT_PROMPT_TEMPLATE.replace("{native_language}", self.core.services.setting.get_settings().native_language)
+        settings = self.core.services.setting.get_settings()
+        return re.sub(r"\{(\w+)\}", lambda m: str(getattr(settings, m[1])), REPORT_PROMPT_TEMPLATE)
 
     def _send(self, category: PromptCategory, prompt: str) -> str:
         """Answer *prompt* with the backend, model and effort the settings name for *category*, logging the call either way.

@@ -71,6 +71,24 @@
     <p class="hint">Corrections one report covers, exactly; once this many accumulate, the server makes the report on its own.</p>
   </div>
 
+  {# Report section sizes; every value is a ceiling the prompt states, so the model shows fewer when the data has fewer. #}
+  {% for name, min, hint in [
+    ("report_shame_items", 1, "Habits from the previous reports that are still present, the most frequent first."),
+    ("report_shame_examples", 2, "Fresh examples under each habit still present."),
+    ("report_repeated_items", 1, "New repeated habits taught, the most frequent first."),
+    ("report_repeated_examples", 2, "Examples under each new habit."),
+    ("report_grammar_examples", 2, "Examples under the one grammar rule taught."),
+    ("report_native_items", 1, "Native-language patterns shown, one example each."),
+    ("report_shorter_items", 1, "Long phrases shown with the short version a native would type."),
+    ("report_focus_examples", 2, "Examples under the one focus habit."),
+  ] %}
+  <label for="{{ name }}">{{ name.replace("_", " ") }}</label>
+  <div>
+    <input id="{{ name }}" name="{{ name }}" type="number" min="{{ min }}" value="{{ settings[name] }}">
+    <p class="hint">{{ hint }} At most.</p>
+  </div>
+  {% endfor %}
+
   <label for="page_size">page size</label>
   <div>
     <input id="page_size" name="page_size" type="number" min="1" value="{{ settings.page_size }}">
