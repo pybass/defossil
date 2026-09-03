@@ -18,6 +18,7 @@ IMPORT_INTERVAL = 300.0  # seconds between import runs; also the retry delay aft
 
 MAX_CHARS = 2000  # past this every message in the archive turned out to be pasted output, not typing
 MIN_WORDS = 4  # too little to judge grammar on
+DUPLICATE_DAYS = 7  # the same text again within this window is a paste; further apart it is a habit and gets reviewed
 
 
 def classify_text(text: str) -> MessageStatus:
@@ -76,8 +77,27 @@ class MessageService(Service):
         """Judge the `new` messages; the verdict is stamped once and only moves forward (pending -> reviewed)."""
         rows = self.db.conn.execute("SELECT * FROM messages WHERE status = 'new'")
         statuses = {row["id"]: classify_text(row["text"]) for row in rows}
+        pending_ids = [mid for mid, s in statuses.items() if s is MessageStatus.PENDING]
         with self.db.transaction() as conn:
             conn.executemany("UPDATE messages SET status = ? WHERE id = ?", [(s, mid) for mid, s in statuses.items()])
+            # Only this batch's would-be pending messages are checked: identical text gets the identical text verdict,
+            # and "too-short" says more than "duplicate". The older copy is the earliest typed_at, not the lowest id —
+            # a rescan inserts sources one after another, so ids do not follow time across sources. Its status does not
+            # matter, so a copy inside this same batch counts too, and typed_at strings compare directly (all UTC ISO).
+            conn.execute(
+                """
+                UPDATE messages SET status = 'duplicate'
+                WHERE id IN (SELECT value FROM json_each(:ids))
+                    AND EXISTS (
+                        SELECT 1 FROM messages older
+                        WHERE older.text = messages.text
+                            AND (older.typed_at < messages.typed_at
+                                OR (older.typed_at = messages.typed_at AND older.id < messages.id))
+                            AND julianday(older.typed_at) >= julianday(messages.typed_at) - :days
+                    )
+                """,
+                {"ids": json.dumps(pending_ids), "days": DUPLICATE_DAYS},
+            )
 
     def get_message(self, message_id: int) -> Message:
         row = self.db.conn.execute("SELECT * FROM messages WHERE id = ?", (message_id,)).fetchone()

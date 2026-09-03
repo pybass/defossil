@@ -26,6 +26,7 @@ class MessageStatus(StrEnum):
     TOO_SHORT = "too-short"
     NO_PROSE = "no-prose"
     TOO_LONG = "too-long"
+    DUPLICATE = "duplicate"  # the same text typed again within a week — a paste, not new writing
 
 
 class NewMessage(BaseModel):

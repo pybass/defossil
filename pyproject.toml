@@ -1,6 +1,6 @@
 [project]
 name = "defossil"
-version = "0.0.6"
+version = "0.0.7"
 description = "Improve your English by reviewing your own chats with AI coding agents."
 readme = "README.md"
 authors = [{ name = "pybass" }]
