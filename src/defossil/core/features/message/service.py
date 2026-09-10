@@ -1,5 +1,6 @@
 import json
 import logging
+import sqlite3
 import threading
 from typing import TYPE_CHECKING, assert_never
 
@@ -19,6 +20,11 @@ IMPORT_INTERVAL = 300.0  # seconds between import runs; also the retry delay aft
 MAX_CHARS = 2000  # past this every message in the archive turned out to be pasted output, not typing
 MIN_WORDS = 4  # too little to judge grammar on
 DUPLICATE_DAYS = 7  # the same text again within this window is a paste; further apart it is a habit and gets reviewed
+
+
+def duplicate_key(text: str) -> str:
+    """Letters and digits only: a paste into another agent's TUI comes back with changed indentation and list markers."""
+    return "".join(ch for ch in text if ch.isalnum())
 
 
 def classify_text(text: str) -> MessageStatus:
@@ -75,29 +81,39 @@ class MessageService(Service):
 
     def _classify_new_messages(self) -> None:
         """Judge the `new` messages; the verdict is stamped once and only moves forward (pending -> reviewed)."""
-        rows = self.db.conn.execute("SELECT * FROM messages WHERE status = 'new'")
+        rows = self.db.conn.execute("SELECT * FROM messages WHERE status = 'new'").fetchall()
         statuses = {row["id"]: classify_text(row["text"]) for row in rows}
-        pending_ids = [mid for mid, s in statuses.items() if s is MessageStatus.PENDING]
+        pending = [row for row in rows if statuses[row["id"]] is MessageStatus.PENDING]
+        duplicate_ids = self._find_duplicates(pending)
         with self.db.transaction() as conn:
             conn.executemany("UPDATE messages SET status = ? WHERE id = ?", [(s, mid) for mid, s in statuses.items()])
-            # Only this batch's would-be pending messages are checked: identical text gets the identical text verdict,
-            # and "too-short" says more than "duplicate". The older copy is the earliest typed_at, not the lowest id —
-            # a rescan inserts sources one after another, so ids do not follow time across sources. Its status does not
-            # matter, so a copy inside this same batch counts too, and typed_at strings compare directly (all UTC ISO).
-            conn.execute(
-                """
-                UPDATE messages SET status = 'duplicate'
-                WHERE id IN (SELECT value FROM json_each(:ids))
-                    AND EXISTS (
-                        SELECT 1 FROM messages older
-                        WHERE older.text = messages.text
-                            AND (older.typed_at < messages.typed_at
-                                OR (older.typed_at = messages.typed_at AND older.id < messages.id))
-                            AND julianday(older.typed_at) >= julianday(messages.typed_at) - :days
-                    )
-                """,
-                {"ids": json.dumps(pending_ids), "days": DUPLICATE_DAYS},
-            )
+            conn.executemany("UPDATE messages SET status = 'duplicate' WHERE id = ?", [(mid,) for mid in duplicate_ids])
+
+    def _find_duplicates(self, pending: list[sqlite3.Row]) -> list[int]:
+        """Ids of the would-be pending rows whose key was already typed within DUPLICATE_DAYS before them.
+
+        Only the batch's would-be pending messages are checked, since "too-short" says more than "duplicate". The older
+        copy is the earliest typed_at, not the lowest id — a rescan inserts sources one after another, so ids do not
+        follow time across sources. Its status does not matter, so a copy inside this same batch counts too. The window
+        is one query over everything typed since DUPLICATE_DAYS before the batch's earliest message; keys are computed
+        in Python because SQL cannot strip spacing and punctuation.
+        """
+        if not pending:
+            return []
+        earliest = min(row["typed_at"] for row in pending)  # typed_at strings compare directly (all UTC ISO)
+        rows = self.db.conn.execute(
+            "SELECT id, text FROM messages WHERE julianday(typed_at) >= julianday(?) - ? ORDER BY typed_at, id",
+            (earliest, DUPLICATE_DAYS),
+        )
+        pending_ids = {row["id"] for row in pending}
+        seen: set[str] = set()
+        duplicates: list[int] = []
+        for row in rows:
+            key = duplicate_key(row["text"])
+            if key in seen and row["id"] in pending_ids:
+                duplicates.append(row["id"])
+            seen.add(key)
+        return duplicates
 
     def get_message(self, message_id: int) -> Message:
         row = self.db.conn.execute("SELECT * FROM messages WHERE id = ?", (message_id,)).fetchone()

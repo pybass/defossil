@@ -1,6 +1,6 @@
 [project]
 name = "defossil"
-version = "0.0.7"
+version = "0.0.8"
 description = "Improve your English by reviewing your own chats with AI coding agents."
 readme = "README.md"
 authors = [{ name = "pybass" }]
@@ -34,7 +34,7 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
-    "ruff~=0.16.5",
+    "ruff~=0.16.6",
     "mypy~=2.3.1",
     "pytest~=9.1.1",
     "pytest-xdist~=3.8.0",
