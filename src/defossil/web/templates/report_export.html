@@ -83,6 +83,14 @@
     .term-pop .term-def { display: block; }
     .term-pop .term-example { display: block; margin-top: 0.3rem; font-family: var(--mono); font-size: 0.9em; color: var(--muted); }
 
+    /* The chat, as on the app's report page: the question set as a quote, the answer as lesson prose. */
+    .chat { margin-top: 2.2rem; }
+    .chat h2 { font-size: 1.15rem; margin: 0 0 0.8rem; border-bottom: 1px solid var(--line); padding-bottom: 0.2rem; }
+    .turn { margin: 1rem 0 1.4rem; }
+    .turn .question { white-space: pre-wrap; border-left: 3px solid var(--line-strong); padding: 0.1rem 0 0.1rem 0.8rem; color: var(--muted); }
+    .turn .answer p { margin: 0.5rem 0; }
+    .turn-time { font-family: var(--mono); font-size: 0.72rem; color: var(--muted); }
+
     footer {
       display: flex;
       flex-wrap: wrap;
@@ -111,6 +119,18 @@
   <div class="rule"></div>
 </header>
 <div id="report" class="markdown"></div>
+{% if turns %}
+<section class="chat">
+  <h2>Questions about this lesson</h2>
+  {% for t in turns %}
+  <div class="turn">
+    <div class="question">{{ t.question }}</div>
+    <div class="answer markdown" data-answer="{{ t.answer }}"></div>
+    <div class="turn-time">{{ t.created_at }}</div>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
 <footer>
   {{ logo_svg|safe }}
   <span>written by defossil v{{ version }}, a personal English coach · <a href="https://github.com/pybass/defossil">github.com/pybass/defossil</a></span>
@@ -120,6 +140,7 @@
 <script>
   /* Sanitized because the report quotes fragments of chat messages, which may carry pasted HTML. */
   document.getElementById("report").innerHTML = DOMPurify.sanitize(marked.parse({{ r.text|correctiontags|tojson }}));
+  for (const el of document.querySelectorAll(".turn .answer")) el.innerHTML = DOMPurify.sanitize(marked.parse(el.dataset.answer));
 </script>
 <script>{{ glossary_js|safe }}</script>
 </body>

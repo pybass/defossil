@@ -1,10 +1,13 @@
 import logging
+import subprocess
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from defossil.core.errors import InvalidOperationError, NotFoundError
+from defossil.core.errors import BusyError, InvalidOperationError, NotFoundError
 from defossil.core.features.correction.models import CorrectionCategory
-from defossil.core.features.report.models import Report, ReportStatus
+from defossil.core.features.report.models import Report, ReportChatSession, ReportChatTurn, ReportStatus
 from defossil.core.service import Service
 from defossil.core.worker import Worker
 
@@ -25,20 +28,34 @@ PREVIOUS_REPORTS = 2
 
 
 class ReportService(Service):
-    """Owner of the `reports` table; only the report worker owned here makes a report, and one is never regenerated."""
+    """Owner of `reports` and of the chat under each one (`report_chat_sessions`, `report_chat_turns`).
+
+    Only the report worker owned here makes a report, and one is never regenerated. The chat pool serves the
+    user's questions beside it: the turns are the record of a chat, the session row only the CLI session the
+    next turn resumes, replaced whenever a resume fails and the turns are replayed into a fresh one.
+    """
 
     def __init__(self, core: Core) -> None:
-        """Bind to Core; the worker is not started here."""
+        """Bind to Core; neither the worker nor the chat pool is started here."""
         super().__init__(core)
         self._report_worker = Worker("report", REPORT_INTERVAL, self._report_run)
         self._report_status: ReportStatus | None = None  # written only by the worker; None until a run with auto AI on finishes
+        self._chat_pending: set[int] = set()  # report ids with a turn queued or being asked right now
+        self._chat_lock = threading.Lock()
+        self._chat_pool: ThreadPoolExecutor | None = None
 
     def on_start(self) -> None:
         self._report_worker.start()
+        self._chat_pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="chat")  # backend calls at once
 
     def on_stop(self) -> None:
-        """Let the worker finish the report it is on, then wait for it."""
+        """Let the worker finish the report it is on, drop the queued turns and wait out the running ones."""
         self._report_worker.stop()
+        if self._chat_pool is not None:
+            # No timeout, same as the worker: the pool must be off the database before Core closes it.
+            self._chat_pool.shutdown(wait=True, cancel_futures=True)
+            self._chat_pool = None
+            self._chat_pending.clear()  # cancelled turns never reach the task's cleanup
 
     def get_report_status(self) -> ReportStatus | None:
         """Return what the last report run did; None until a run with auto AI on has finished."""
@@ -164,8 +181,14 @@ class ReportService(Service):
         last = next(iter(self.get_last_reports(1)), None)
         if last is None:
             raise NotFoundError("No reports")
-        with self.db.transaction() as conn:
-            conn.execute("DELETE FROM reports WHERE id = ?", (last.id,))
+        # Held across the delete: a turn admitted meanwhile would write its answer under a rebuilt report's id.
+        with self._chat_lock:
+            if last.id in self._chat_pending:
+                raise BusyError(f"Report {last.id} has a chat turn in flight")
+            with self.db.transaction() as conn:
+                conn.execute("DELETE FROM report_chat_turns WHERE report_id = ?", (last.id,))
+                conn.execute("DELETE FROM report_chat_sessions WHERE report_id = ?", (last.id,))
+                conn.execute("DELETE FROM reports WHERE id = ?", (last.id,))
         return last.id
 
     def get_report(self, report_id: int) -> Report:
@@ -173,3 +196,93 @@ class ReportService(Service):
         if row is None:
             raise NotFoundError(f"No report {report_id}")
         return Report.from_row(row)
+
+    def ask(self, report_id: int, question: str) -> None:
+        """Queue one question for the report's chat; the answer lands as a turn when the pool is done with it.
+
+        Raises NotFoundError for a bad report, InvalidOperationError for a blank question, and BusyError while
+        the report already has a turn in flight — the caller keeps the question and tries again later.
+        """
+        self.get_report(report_id)  # a bad id must 404 here, not fail later in the pool's log
+        if not question.strip():
+            raise InvalidOperationError("The question is empty")
+        if self._chat_pool is None:
+            raise RuntimeError("The chat pool is not running")
+        with self._chat_lock:
+            if report_id in self._chat_pending:
+                raise BusyError(f"Report {report_id} has a chat turn in flight")
+            self._chat_pending.add(report_id)
+        try:
+            self._chat_pool.submit(self._run_turn, report_id, question.strip())
+        except BaseException:
+            with self._chat_lock:
+                self._chat_pending.discard(report_id)
+            raise
+
+    def get_pending_chat_ids(self) -> set[int]:
+        """Return the report ids with a chat turn queued or being asked right now."""
+        with self._chat_lock:
+            return set(self._chat_pending)
+
+    def get_chat_turns(self, report_id: int, after_id: int = 0) -> list[ReportChatTurn]:
+        """Return the report's turns in order, only those past *after_id* — the page's poll cursor."""
+        rows = self.db.conn.execute(
+            "SELECT * FROM report_chat_turns WHERE report_id = ? AND id > ? ORDER BY id", (report_id, after_id)
+        )
+        return [ReportChatTurn.from_row(row) for row in rows]
+
+    def get_chat_session(self, report_id: int) -> ReportChatSession | None:
+        row = self.db.conn.execute("SELECT * FROM report_chat_sessions WHERE report_id = ?", (report_id,)).fetchone()
+        return ReportChatSession.from_row(row) if row is not None else None
+
+    def _run_turn(self, report_id: int, question: str) -> None:
+        """One pool task: resume the chat's session or open one over the stored turns, then store the turn.
+
+        A failed turn is dropped — its error is in the ai calls log. A failure after the backend answered leaves
+        the CLI session ahead of the record, so the session row goes too: the next turn replays from the turns.
+        """
+        # One settings snapshot for the whole turn, so the session is resumed and saved under the same backend.
+        settings = self.core.services.setting.get_settings()
+        answered = False
+        try:
+            report = self.get_report(report_id)
+            session = self.get_chat_session(report_id)
+            answer: str | None = None
+            session_id: str | None = None
+            if session is not None and session.backend == settings.ai_backend:
+                try:
+                    answer, session_id = self.core.services.ai.send_chat_prompt(
+                        settings, report.text, [], question, session.session_id
+                    )
+                except subprocess.CalledProcessError:
+                    # The CLI no longer has the session (Claude Code drops transcripts after ~30 days) or refused
+                    # it. One call wasted; the replay below gives the report a fresh session.
+                    logger.info(f"chat: report {report_id}: resume of {session.session_id} failed, replaying")
+            if answer is None or session_id is None:
+                turns = self.get_chat_turns(report_id)
+                answer, session_id = self.core.services.ai.send_chat_prompt(settings, report.text, turns, question, None)
+            answered = True
+            now = datetime.now(UTC).isoformat()
+            with self.db.transaction() as conn:
+                if session is None or session.session_id != session_id:
+                    conn.execute(
+                        """
+                        INSERT INTO report_chat_sessions (report_id, backend, session_id, created_at) VALUES (?,?,?,?)
+                        ON CONFLICT(report_id) DO UPDATE SET backend = excluded.backend,
+                            session_id = excluded.session_id, created_at = excluded.created_at
+                        """,
+                        (report_id, settings.ai_backend, session_id, now),
+                    )
+                conn.execute(
+                    "INSERT INTO report_chat_turns (report_id, question, answer, created_at) VALUES (?,?,?,?)",
+                    (report_id, question, answer, now),
+                )
+        except Exception:
+            logger.exception(f"chat: report {report_id} failed")
+            if answered:
+                with self.db.transaction() as conn:
+                    conn.execute("DELETE FROM report_chat_sessions WHERE report_id = ?", (report_id,))
+        finally:
+            # Removed only now, after the write: while the turn runs, the id must still read as pending.
+            with self._chat_lock:
+                self._chat_pending.discard(report_id)

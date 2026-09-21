@@ -308,6 +308,30 @@ dialog textarea {
 .explain-actions { display: flex; align-items: center; gap: 0.8rem; margin-top: 0.6rem; }
 .explain-actions .explain-close { margin-left: auto; }
 
+/* Report chat: the question set as a quote, the answer as lesson prose, the textarea styled like the explain dialog's. */
+.chat { max-width: 46rem; margin-top: 2.2rem; }
+.chat h2 { font-size: 1.15rem; margin: 0 0 0.8rem; border-bottom: 1px solid var(--line); padding-bottom: 0.2rem; }
+.turn { margin: 1rem 0 1.4rem; }
+.turn .question { white-space: pre-wrap; border-left: 3px solid var(--line-strong); padding: 0.1rem 0 0.1rem 0.8rem; color: var(--muted); }
+.turn .answer p { margin: 0.5rem 0; }
+.turn-time { font-family: var(--mono); font-size: 0.72rem; }
+.chat-asking { font-family: var(--mono); font-size: 0.82rem; animation: explain-pulse 1.2s ease-in-out infinite; }
+.chat-failed { font-family: var(--mono); font-size: 0.82rem; color: var(--del-ink); }
+.chat textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--ink);
+  background: var(--card);
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  padding: 0.6rem;
+  resize: vertical;
+}
+.chat textarea:disabled, .chat button:disabled { opacity: 0.5; cursor: default; }
+
 /* Settings form: one labeled row per setting, its hint under the input. */
 .settings-form { display: grid; grid-template-columns: max-content minmax(0, 30rem); gap: 1.1rem 1.4rem; align-items: baseline; margin: 1.4rem 0; }
 .settings-form label { font-family: var(--mono); font-size: 0.82rem; color: var(--muted); }

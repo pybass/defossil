@@ -13,7 +13,7 @@ from fastapi.responses import PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
 from defossil.core.core import Core
-from defossil.core.errors import InvalidOperationError, NotFoundError
+from defossil.core.errors import BusyError, InvalidOperationError, NotFoundError
 from defossil.web.routers import ai, correction, message, report, setting, system
 from defossil.web.templating import configure_jinja
 
@@ -47,5 +47,10 @@ def create_app(core: Core) -> FastAPI:
     def invalid(_request: Request, exc: Exception) -> PlainTextResponse:
         """Turn a broken model rule into a 400, same reason."""
         return PlainTextResponse(str(exc), status_code=400)
+
+    @app.exception_handler(BusyError)
+    def busy(_request: Request, exc: Exception) -> PlainTextResponse:
+        """Turn work already in flight into a 409, so the page keeps what the user typed and retries later."""
+        return PlainTextResponse(str(exc), status_code=409)
 
     return app

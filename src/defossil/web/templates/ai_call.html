@@ -20,6 +20,9 @@
 {% if call.error %}
 <p>failed: {{ call.error }}</p>
 {% endif %}
+{% if call.session_id %}
+<p class="muted">chat session {{ call.session_id }}</p>
+{% endif %}
 <h2>Prompt <span class="muted">({{ '{:,}'.format(call.prompt|length) }} chars)</span></h2>
 <pre>{{ call.prompt }}</pre>
 <h2>Reply</h2>

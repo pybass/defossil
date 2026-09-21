@@ -14,6 +14,8 @@ from defossil.core.errors import AiError, NotFoundError
 from defossil.core.features.ai.backends import build_backend
 from defossil.core.features.ai.models import AiCall, AiResponse, PromptCategory
 from defossil.core.features.correction.models import CATEGORIES, Correction, NewCorrection
+from defossil.core.features.report.models import ReportChatTurn
+from defossil.core.features.setting.models import Settings
 from defossil.core.service import Service
 
 if TYPE_CHECKING:
@@ -32,13 +34,14 @@ def _load_prompt(name: str) -> str:
 REVIEW_PROMPT_TEMPLATE = _load_prompt("review")  # {native_language} and {categories} filled per call
 EXPLAIN_PROMPT_TEMPLATE = _load_prompt("explain")  # {native_language} filled per call
 REPORT_PROMPT_TEMPLATE = _load_prompt("report")  # every {name} is the Settings field of that name, filled per call
+CHAT_PROMPT_TEMPLATE = _load_prompt("chat")  # {native_language} filled per call; opens a chat session, sent once per session
 
 
 class AiService(Service):
     """Owner of the `ai_calls` table and of every prompt: it builds each ask, runs and logs the call, parses the answer.
 
     Also holds the auto-AI switch — the one flag that gates unattended spending. The review and report workers
-    check it; user-initiated asks (explains) ignore it, so nothing here enforces it on `send_*`.
+    check it; user-initiated asks (explains, chats) ignore it, so nothing here enforces it on `send_*`.
     """
 
     def __init__(self, core: Core) -> None:
@@ -65,7 +68,7 @@ class AiService(Service):
         """
         try:
             messages_json = json.dumps([{"id": mid, "text": text} for mid, text in texts.items()], ensure_ascii=False)
-            reply = self._send(PromptCategory.REVIEW, self.get_review_prompt() + messages_json)
+            reply = self._send(PromptCategory.REVIEW, self.get_review_prompt() + messages_json).reply
             # Strip the code fences the model sometimes adds, then flatten the per-message JSON array behind them.
             reply = reply.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
             corrections = [NewCorrection(message_id=item["id"], **c) for item in json.loads(reply) for c in item["corrections"]]
@@ -87,7 +90,7 @@ class AiService(Service):
         prompt = self.get_explain_prompt() + json.dumps(data, ensure_ascii=False, indent=2)
         if question.strip():
             prompt += f"\n\nThe writer's own question:\n{question.strip()}"
-        return self._send(PromptCategory.EXPLAIN, prompt)
+        return self._send(PromptCategory.EXPLAIN, prompt).reply
 
     def send_report_prompt(
         self,
@@ -107,7 +110,29 @@ class AiService(Service):
             "messages": messages,
             "previous_reports": previous_reports,
         }
-        return self._send(PromptCategory.REPORT, self.get_report_prompt() + json.dumps(data, ensure_ascii=False))
+        return self._send(PromptCategory.REPORT, self.get_report_prompt() + json.dumps(data, ensure_ascii=False)).reply
+
+    def send_chat_prompt(
+        self, settings: Settings, report_text: str, turns: list[ReportChatTurn], question: str, session_id: str | None
+    ) -> tuple[str, str]:
+        """Ask one more question in a report's chat; returns the answer markdown and the session it lives in.
+
+        With *session_id*, only the question is sent, as a turn in that session; a session the CLI no longer has
+        fails with CalledProcessError. Without, a new session opens on the lesson and the stored *turns*, so the
+        conversation continues where the record says it was. *settings* is the caller's snapshot for the whole turn.
+        """
+        if session_id is not None:
+            response = self._send(PromptCategory.CHAT, question, settings, session_id=session_id)
+        else:
+            data: dict[str, object] = {"lesson": report_text}
+            if turns:
+                data["earlier_turns"] = [{"question": t.question, "answer": t.answer} for t in turns]
+            data["question"] = question
+            prompt = self.get_chat_prompt() + json.dumps(data, ensure_ascii=False, indent=2)
+            response = self._send(PromptCategory.CHAT, prompt, settings, persist=True)
+        if not response.session_id:
+            raise AiError("the backend reported no session id")
+        return response.reply, response.session_id
 
     def get_review_prompt(self) -> str:
         """Return the review prompt as it is sent: the native language and one line per catalog category filled in."""
@@ -127,12 +152,26 @@ class AiService(Service):
         settings = self.core.services.setting.get_settings()
         return re.sub(r"\{(\w+)\}", lambda m: str(getattr(settings, m[1])), REPORT_PROMPT_TEMPLATE)
 
-    def _send(self, category: PromptCategory, prompt: str) -> str:
+    def get_chat_prompt(self) -> str:
+        """Return the chat prompt as it is sent when a session opens; the lesson, earlier turns and question JSON follow."""
+        return CHAT_PROMPT_TEMPLATE.replace("{native_language}", self.core.services.setting.get_settings().native_language)
+
+    def _send(
+        self,
+        category: PromptCategory,
+        prompt: str,
+        settings: Settings | None = None,
+        *,
+        session_id: str | None = None,
+        persist: bool = False,
+    ) -> AiResponse:
         """Answer *prompt* with the backend, model and effort the settings name for *category*, logging the call either way.
 
-        Returns the raw answer text; a failed call is logged with its error and re-raised.
+        *settings* is read fresh unless the caller passes its own snapshot. *session_id* and *persist* go to the
+        backend as they are. A failed call is logged with its error and re-raised.
         """
-        settings = self.core.services.setting.get_settings()
+        if settings is None:
+            settings = self.core.services.setting.get_settings()
         match category:
             case PromptCategory.REVIEW:
                 model, effort = settings.review_model, settings.review_effort
@@ -140,6 +179,8 @@ class AiService(Service):
                 model, effort = settings.explain_model, settings.explain_effort
             case PromptCategory.REPORT:
                 model, effort = settings.report_model, settings.report_effort
+            case PromptCategory.CHAT:
+                model, effort = settings.chat_model, settings.chat_effort
             case _:
                 assert_never(category)
         backend = build_backend(settings.ai_backend)
@@ -148,18 +189,20 @@ class AiService(Service):
         response: AiResponse | None = None
         error: str | None = None
         try:
-            response = backend.send_prompt(prompt, model, effort)
+            response = backend.send_prompt(prompt, model, effort, session_id=session_id, persist=persist)
         except Exception as e:
             error = f"{type(e).__name__}: {e}"
             raise
+        else:
+            return response
         finally:
             metrics = response if response is not None else AiResponse(reply="")
             with self.db.transaction() as conn:
                 conn.execute(
                     """
                     INSERT INTO ai_calls (created_at, category, backend, model, effort, prompt, reply,
-                        input_tokens, output_tokens, cost_usd, duration_ms, error)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+                        input_tokens, output_tokens, cost_usd, duration_ms, error, session_id)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
                     """,
                     (
                         started_at.isoformat(),
@@ -174,9 +217,9 @@ class AiService(Service):
                         metrics.cost_usd,
                         int((time.monotonic() - started) * 1000),
                         error,
+                        metrics.session_id or session_id,  # a failed resume still names the session it tried
                     ),
                 )
-        return response.reply
 
     def get_calls(self, category: PromptCategory | None, limit: int, offset: int) -> list[AiCall]:
         """Return one page of stored calls, newest first; a None category means no filter."""

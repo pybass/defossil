@@ -18,6 +18,8 @@ class Settings(BaseModel):
     explain_effort: Annotated[str, Field(min_length=1)] = "low"
     report_model: Annotated[str, Field(min_length=1)] = "opus"
     report_effort: Annotated[str, Field(min_length=1)] = "xhigh"
+    chat_model: Annotated[str, Field(min_length=1)] = "opus"
+    chat_effort: Annotated[str, Field(min_length=1)] = "low"
     source_claude_code_enabled: bool = False  # off = stop collecting from Claude Code; the archive keeps what it has
     source_codex_enabled: bool = False  # off = stop collecting from Codex; the archive keeps what it has
     claude_projects_dir: Path = Path.home() / ".claude" / "projects"

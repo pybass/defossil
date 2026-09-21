@@ -58,6 +58,11 @@ def create_router(core: Core) -> APIRouter:
                 PromptView(
                     "report.md", core.services.ai.get_report_prompt(), "corrections, messages and previous reports as JSON"
                 ),
+                PromptView(
+                    "chat.md",
+                    core.services.ai.get_chat_prompt(),
+                    "the lesson, the earlier turns and the question as JSON; a resumed turn sends the question alone",
+                ),
             ],
         }
         return templates.TemplateResponse(request, "prompts.html", ctx)

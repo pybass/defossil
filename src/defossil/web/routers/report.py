@@ -1,14 +1,43 @@
-"""The reports: every stored lesson and how far the next one is; also owns the root redirect."""
+"""The reports: every stored lesson, how far the next one is, and the chat under each; also owns the root redirect."""
 
 from pathlib import Path
+from typing import Annotated, Self
 
 from fastapi import APIRouter
 from fastapi.requests import Request
 from fastapi.responses import HTMLResponse, RedirectResponse
+from pydantic import BaseModel, Field
 
 from defossil.core.core import Core
 from defossil.core.features.message.models import MessageStatus
-from defossil.web.templating import templates
+from defossil.core.features.report.models import ReportChatTurn
+from defossil.web.templating import correction_tags, format_dt, templates
+
+
+class ChatRequest(BaseModel):
+    """The body of the chat ask."""
+
+    question: Annotated[str, Field(max_length=4000)]  # a chat line, not a document; blank is refused by the service
+
+
+class ChatTurnView(BaseModel):
+    """One turn as the page renders it: the answer already carries the correction widgets, the rest is markdown."""
+
+    id: int
+    question: str
+    answer: str  # markdown with <wrong>/<right> pairs replaced by the diff widget; sanitized on the page
+    created_at: str  # local time, as the page shows every timestamp
+
+    @classmethod
+    def from_turn(cls, turn: ReportChatTurn) -> Self:
+        return cls(id=turn.id, question=turn.question, answer=correction_tags(turn.answer), created_at=format_dt(turn.created_at))
+
+
+class ChatStatus(BaseModel):
+    """One report's chat state, as the page's poll sees it."""
+
+    pending: bool  # a turn is queued or being asked right now
+    turns: list[ChatTurnView]  # the turns past the poll's cursor, in order
 
 
 def create_router(core: Core) -> APIRouter:
@@ -39,8 +68,31 @@ def create_router(core: Core) -> APIRouter:
 
     @router.get("/reports/{report_id}", response_class=HTMLResponse)
     def report_page(request: Request, report_id: int) -> HTMLResponse:
-        """One report; its markdown is rendered in the browser."""
-        return templates.TemplateResponse(request, "report.html", {"r": core.services.report.get_report(report_id)})
+        """One report with its chat; the markdown of both is rendered in the browser."""
+        ctx = {
+            "r": core.services.report.get_report(report_id),
+            # Plain dicts: the page embeds them with Jinja's tojson, which cannot serialize a model.
+            "turns": [ChatTurnView.from_turn(t).model_dump() for t in core.services.report.get_chat_turns(report_id)],
+            "chat_pending": report_id in core.services.report.get_pending_chat_ids(),
+        }
+        return templates.TemplateResponse(request, "report.html", ctx)
+
+    @router.post("/reports/{report_id}/chat")
+    def chat_ask(report_id: int, body: ChatRequest) -> dict[str, bool]:
+        """Queue the question for the report's chat and return at once; the page polls for the answer.
+
+        409 while the report already has a turn in flight: the page keeps the question for a retry.
+        """
+        core.services.report.ask(report_id, body.question)
+        return {"pending": True}
+
+    @router.get("/reports/{report_id}/chat-status")
+    def chat_status(report_id: int, after_id: int = 0) -> ChatStatus:
+        """One poll: whether a turn is in flight, and the turns past *after_id* — the last one the page has."""
+        return ChatStatus(
+            pending=report_id in core.services.report.get_pending_chat_ids(),
+            turns=[ChatTurnView.from_turn(t) for t in core.services.report.get_chat_turns(report_id, after_id)],
+        )
 
     @router.get("/reports/{report_id}/download", response_class=HTMLResponse)
     def report_download(request: Request, report_id: int) -> HTMLResponse:
@@ -48,6 +100,7 @@ def create_router(core: Core) -> APIRouter:
         static = Path(__file__).parent.parent / "static"
         ctx = {
             "r": core.services.report.get_report(report_id),
+            "turns": [ChatTurnView.from_turn(t) for t in core.services.report.get_chat_turns(report_id)],
             "marked_js": (static / "marked.min.js").read_text(encoding="utf-8"),
             "purify_js": (static / "purify.min.js").read_text(encoding="utf-8"),
             "glossary_js": (static / "glossary.js").read_text(encoding="utf-8"),

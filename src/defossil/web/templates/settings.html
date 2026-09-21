@@ -23,7 +23,7 @@
     <p class="hint">Which CLI answers the review and report prompts.</p>
   </div>
 
-  {% for category in ["review", "explain", "report"] %}
+  {% for category in ["review", "explain", "report", "chat"] %}
   <label for="{{ category }}_model">{{ category }} model</label>
   <div>
     <input id="{{ category }}_model" name="{{ category }}_model" value="{{ settings[category + '_model'] }}">

@@ -14,6 +14,7 @@ class PromptCategory(StrEnum):
     REVIEW = "review"
     EXPLAIN = "explain"
     REPORT = "report"
+    CHAT = "chat"
 
 
 class AiResponse(BaseModel):
@@ -24,6 +25,7 @@ class AiResponse(BaseModel):
     input_tokens: int | None = None  # cache reads and writes included — they are still input paid for
     output_tokens: int | None = None
     cost_usd: float | None = None
+    session_id: str | None = None  # the CLI session the call ran in; set only for persistent and resumed calls
 
 
 class AiCall(BaseModel):
@@ -42,6 +44,7 @@ class AiCall(BaseModel):
     cost_usd: float | None
     duration_ms: int
     error: str | None  # why the call failed; the row is still written
+    session_id: str | None  # the CLI session a chat call ran in; None for every other category
 
     @classmethod
     def from_row(cls, row: sqlite3.Row) -> Self:

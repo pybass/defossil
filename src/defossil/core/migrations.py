@@ -61,4 +61,25 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 """
 
-MIGRATIONS = (_MIGRATION_V1,)  # append-only; index+1 = PRAGMA user_version
+# Schema v2: the chat under a report. `report_chat_turns` is the record of the conversation; `report_chat_sessions`
+# holds the one CLI session the next turn resumes, replaced whenever a resume fails and the turns are replayed into
+# a fresh session. `ai_calls.session_id` ties each chat call to the session it ran in; NULL for every other prompt.
+_MIGRATION_V2 = """
+CREATE TABLE report_chat_sessions (
+    report_id INTEGER PRIMARY KEY REFERENCES reports(id),
+    backend TEXT NOT NULL,
+    session_id TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE report_chat_turns (
+    id INTEGER PRIMARY KEY,
+    report_id INTEGER NOT NULL REFERENCES reports(id),
+    question TEXT NOT NULL,
+    answer TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX idx_report_chat_turns_report_id ON report_chat_turns (report_id);
+ALTER TABLE ai_calls ADD COLUMN session_id TEXT;
+"""
+
+MIGRATIONS = (_MIGRATION_V1, _MIGRATION_V2)  # append-only; index+1 = PRAGMA user_version

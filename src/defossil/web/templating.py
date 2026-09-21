@@ -18,8 +18,8 @@ if TYPE_CHECKING:
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")  # Autoescaping is on by default
 
 
-def _format_dt(moment: datetime) -> str:
-    """Render a timestamp in local time as 'YYYY-MM-DD HH:MM:SS'."""
+def format_dt(moment: datetime) -> str:
+    """Render a timestamp in local time as 'YYYY-MM-DD HH:MM:SS'; public for the chat poll, which renders past the templates."""
     return moment.astimezone().strftime("%Y-%m-%d %H:%M:%S")
 
 
@@ -68,8 +68,11 @@ def _word_diff(original: str, correction: str) -> Markup:
 _CORRECTION_RE = re.compile(r"<wrong>(.*?)</wrong>\s*<right>(.*?)</right>(?:\s*<why>(.*?)</why>)?")
 
 
-def _correction_tags(text: str) -> str:
-    """Replace <wrong>/<right>[<why>] pairs in report markdown with the collapsed word-diff widget the corrections page uses."""
+def correction_tags(text: str) -> str:
+    """Replace <wrong>/<right>[<why>] pairs in report markdown with the collapsed word-diff widget the corrections page uses.
+
+    Public for the chat poll, which hands answers to the page as JSON, past the template filter.
+    """
 
     def widget(m: re.Match[str]) -> str:
         """One pair as a details widget, on one line — a line break would make marked close the surrounding list item."""
@@ -109,13 +112,13 @@ def configure_jinja(core: Core) -> None:
             due["unreported"] = unreported
         return due or None
 
-    templates.env.filters["dt"] = _format_dt
+    templates.env.filters["dt"] = format_dt
     templates.env.filters["dur"] = _format_duration
     templates.env.filters["ago"] = _format_ago
     templates.env.filters["hm"] = _format_hm
     templates.env.filters["day"] = _local_date
     templates.env.filters["worddiff"] = _word_diff
-    templates.env.filters["correctiontags"] = _correction_tags
+    templates.env.filters["correctiontags"] = correction_tags
     templates.env.globals["version"] = version("defossil")
     templates.env.globals["auto_ai"] = core.services.ai.is_auto_ai
     templates.env.globals["unread_reports"] = core.services.report.count_unacknowledged_reports

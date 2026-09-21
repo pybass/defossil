@@ -8,6 +8,7 @@ import json
 import shutil
 import subprocess
 import tempfile
+import uuid
 from pathlib import Path
 from typing import Protocol
 
@@ -17,21 +18,36 @@ from defossil.core.features.ai.models import AiResponse
 class AiBackend(Protocol):
     """One prompt in, the answer with its metadata out; what is asked and how it is read is the caller's."""
 
-    def send_prompt(self, prompt: str, model: str, effort: str) -> AiResponse:
-        """Answer *prompt* on *model* at *effort*; a failed call raises to the caller."""
+    def send_prompt(
+        self, prompt: str, model: str, effort: str, *, session_id: str | None = None, persist: bool = False
+    ) -> AiResponse:
+        """Answer *prompt* on *model* at *effort*; a failed call raises to the caller.
+
+        *session_id* resumes that CLI session, so the prompt is one more turn in it. *persist* opens a session the
+        CLI keeps, reported back in the response, so a later call can resume it. Neither: a one-shot call the CLI
+        forgets. A resume of a session the CLI no longer has fails like any other call.
+        """
         ...
 
 
 class ClaudeBackend:
     """Answers a prompt by running the `claude` CLI in print mode."""
 
-    def send_prompt(self, prompt: str, model: str, effort: str) -> AiResponse:
+    def send_prompt(
+        self, prompt: str, model: str, effort: str, *, session_id: str | None = None, persist: bool = False
+    ) -> AiResponse:
         claude_bin = shutil.which("claude")
         if claude_bin is None:
             raise RuntimeError("claude CLI not found in PATH")
         # Hooks are for interactive sessions: without this they fire on every call (sounds, prompt-injecting hooks).
         argv = [claude_bin, "-p", "--output-format", "json", "--settings", '{"disableAllHooks": true}']
         argv += ["--model", model, "--effort", effort]
+        # The CLI keeps every print-mode session, so persisting is only a matter of knowing the id: it is chosen here.
+        if session_id is not None:
+            argv += ["--resume", session_id]
+        elif persist:
+            session_id = str(uuid.uuid4())
+            argv += ["--session-id", session_id]
         result = subprocess.run(  # noqa: S603 -- fixed argv, resolved binary, no shell; nothing user-controlled is executed
             argv, input=prompt, capture_output=True, text=True, check=True
         )
@@ -50,26 +66,41 @@ class ClaudeBackend:
             else None,
             output_tokens=usage.get("output_tokens") if usage else None,
             cost_usd=answer.get("total_cost_usd"),
+            session_id=session_id,
         )
 
 
 class CodexBackend:
     """Answers a prompt by running the `codex` CLI non-interactively; the CLI reports no usable usage metadata."""
 
-    def send_prompt(self, prompt: str, model: str, effort: str) -> AiResponse:
+    def send_prompt(
+        self, prompt: str, model: str, effort: str, *, session_id: str | None = None, persist: bool = False
+    ) -> AiResponse:
         codex_bin = shutil.which("codex")
         if codex_bin is None:
             raise RuntimeError("codex CLI not found in PATH")
-        # --ephemeral keeps the run out of ~/.codex/sessions, so the collector never re-ingests defossil's own prompts.
         with tempfile.TemporaryDirectory() as tmp:
             answer_file = Path(tmp) / "answer.txt"
-            flags = ["--skip-git-repo-check", "--ephemeral", "--sandbox", "read-only", "-o", str(answer_file)]
+            flags = ["--skip-git-repo-check", "--sandbox", "read-only", "--json", "-o", str(answer_file)]
             flags += ["--model", model, "-c", f"model_reasoning_effort={effort}"]
-            argv = [codex_bin, "exec", *flags, "-"]
-            subprocess.run(  # noqa: S603 -- fixed argv, resolved binary, no shell; the prompt only travels over stdin
+            # --ephemeral keeps a one-shot run out of ~/.codex/sessions. A persistent one must land there to be
+            # resumable; the collector still skips it, as it keeps only sessions the user typed into (source "cli").
+            resumable = persist or session_id is not None
+            if not resumable:
+                flags.append("--ephemeral")
+            # Exec options go before the subcommand: `resume` takes only the id and the prompt.
+            argv = [codex_bin, "exec", *flags, *(["resume", session_id] if session_id is not None else []), "-"]
+            result = subprocess.run(  # noqa: S603 -- fixed argv, resolved binary, no shell; the prompt only travels over stdin
                 argv, input=prompt, capture_output=True, text=True, check=True
             )
-            return AiResponse(reply=answer_file.read_text().strip())
+            # With --json the CLI prints one event per line; the first, thread.started, names the session.
+            events: list[dict[str, object]] = [json.loads(line) for line in result.stdout.splitlines() if line.startswith("{")]
+            started = next((e for e in events if e.get("type") == "thread.started"), {})
+            thread_id = started.get("thread_id")
+            return AiResponse(
+                reply=answer_file.read_text().strip(),
+                session_id=(thread_id if isinstance(thread_id, str) else session_id) if resumable else None,
+            )
 
 
 def build_backend(name: str) -> AiBackend:

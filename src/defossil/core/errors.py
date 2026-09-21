@@ -13,5 +13,9 @@ class InvalidOperationError(DefossilError):
     """The operation a caller asked for would break a rule of the model."""
 
 
+class BusyError(DefossilError):
+    """The record is being worked on right now; the same operation can be retried once that work is done."""
+
+
 class AiError(DefossilError):
     """A backend call failed or its answer could not be read; the same ask can be retried later."""

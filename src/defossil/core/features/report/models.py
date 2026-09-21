@@ -39,3 +39,30 @@ class Report(BaseModel):
     @classmethod
     def from_row(cls, row: sqlite3.Row) -> Self:
         return cls.model_validate(dict(row))
+
+
+class ReportChatSession(BaseModel):
+    """The CLI session behind a report's chat. Disposable: when a resume fails, a new one is opened and replayed."""
+
+    report_id: int
+    backend: str  # the CLI it lives in; a backend switch makes it useless, not wrong
+    session_id: str
+    created_at: datetime
+
+    @classmethod
+    def from_row(cls, row: sqlite3.Row) -> Self:
+        return cls.model_validate(dict(row))
+
+
+class ReportChatTurn(BaseModel):
+    """One question and its answer; append-only, written together once the answer is in."""
+
+    id: int
+    report_id: int
+    question: str
+    answer: str  # markdown, as the model wrote it
+    created_at: datetime
+
+    @classmethod
+    def from_row(cls, row: sqlite3.Row) -> Self:
+        return cls.model_validate(dict(row))

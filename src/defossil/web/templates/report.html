@@ -9,6 +9,14 @@
 <p><button class="ack big" data-acked="{{ '1' if r.acknowledged else '0' }}"
     title="{{ 'undo' if r.acknowledged else 'mark this report as read' }}"
     onclick="toggleAcknowledged(this, {{ r.id }})">{{ '✓ read' if r.acknowledged else 'got it!' }}</button></p>
+<section class="chat">
+  <h2>Ask about this lesson</h2>
+  <div id="turns"></div>
+  <p class="chat-asking muted"{% if not chat_pending %} hidden{% endif %}>asking…</p>
+  <p class="chat-failed" hidden>the ask failed — see the <a href="/system/ai-calls?category=chat">ai calls</a> page</p>
+  <textarea id="question" rows="3" placeholder="A rule, an example, anything the lesson brought to mind. Enter sends, Shift+Enter is a new line."{% if chat_pending %} disabled{% endif %}></textarea>
+  <p><button id="ask" onclick="sendQuestion()"{% if chat_pending %} disabled{% endif %}>ask</button></p>
+</section>
 <details class="meta-line">
   <summary>raw markdown — the report as stored, for debugging</summary>
   <pre>{{ r.text }}</pre>
@@ -26,6 +34,68 @@
     button.textContent = acked ? 'got it!' : '✓ read';
     button.title = acked ? 'mark this report as read' : 'undo';
   }
+
+  const reportId = {{ r.id }};
+  const turnsEl = document.getElementById('turns');
+  const questionEl = document.getElementById('question');
+  const askButton = document.getElementById('ask');
+  let lastTurnId = 0;
+  let pollTimer = null;
+  function appendTurn(turn) {
+    const div = document.createElement('div');
+    div.className = 'turn';
+    div.innerHTML = '<div class="question"></div><div class="answer markdown"></div><div class="turn-time muted"></div>';
+    div.querySelector('.question').textContent = turn.question;
+    /* Sanitized like the report: an answer quotes the user's own words, which may carry pasted HTML. */
+    const answer = div.querySelector('.answer');
+    answer.innerHTML = DOMPurify.sanitize(marked.parse(turn.answer));
+    div.querySelector('.turn-time').textContent = turn.created_at;
+    turnsEl.append(div);
+    if (typeof annotateTerms === 'function') annotateTerms(answer);  /* turns arriving after load miss glossary.js's own scan */
+    lastTurnId = turn.id;
+  }
+  {{ turns|tojson }}.forEach(appendTurn);
+  function setAsking(asking) {
+    questionEl.disabled = asking;
+    askButton.disabled = asking;
+    document.querySelector('.chat-asking').hidden = !asking;
+    if (asking) document.querySelector('.chat-failed').hidden = true;
+  }
+  async function sendQuestion() {
+    if (askButton.disabled || !questionEl.value.trim()) return;
+    setAsking(true);
+    let res;
+    try {
+      res = await fetch(`/reports/${reportId}/chat`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({question: questionEl.value}),
+      });
+    } catch {
+      setAsking(false);  /* network failure: the draft stays for a retry */
+      return;
+    }
+    if (!res.ok) { setAsking(false); alert(await res.text()); return; }  /* 409 while a turn runs: the draft stays too */
+    questionEl.value = '';
+    startPolling();
+  }
+  questionEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); sendQuestion(); }
+  });
+  function startPolling() { if (!pollTimer) pollTimer = setInterval(pollChat, 2000); }
+  async function pollChat() {
+    const res = await fetch(`/reports/${reportId}/chat-status?after_id=${lastTurnId}`);
+    if (!res.ok) return;  /* transient — the next tick retries */
+    const status = await res.json();
+    status.turns.forEach(appendTurn);
+    if (status.pending) return;
+    clearInterval(pollTimer);
+    pollTimer = null;
+    setAsking(false);
+    if (!status.turns.length) document.querySelector('.chat-failed').hidden = false;
+    else questionEl.focus();
+  }
+  if ({{ 'true' if chat_pending else 'false' }}) startPolling();
 </script>
 <script src="/static/glossary.js"></script>
 {% endblock %}
