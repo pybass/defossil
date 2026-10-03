@@ -26,7 +26,9 @@ The schema evolves through append-only migrations (`core/migrations.py`, tracked
 
 Python, FastAPI, SQLite. LLM calls go through the `claude` CLI by default (`claude -p` — works with a Claude subscription, no API key); a setting switches to `codex exec`. Local only: data never leaves the machine except text sent for review.
 
-Run `defossil`, open http://127.0.0.1:3677.
+Run `defossil start`, open http://127.0.0.1:3677. The server runs in the background until `defossil stop`; `defossil status` tells whether it is up. It does not come back after a reboot. Plain `defossil` runs the same server in the foreground. macOS and Linux only.
+
+One data dir takes one server: a second one refuses to start. The background server writes its log to `defossil.log` in the data dir; the file is never rotated.
 
 ## Settings
 
