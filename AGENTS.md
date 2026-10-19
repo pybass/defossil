@@ -10,6 +10,7 @@ All code, comments, commit messages, and files must ALWAYS be in English — no 
 ## Mandatory Rules (external)
 Read these files fully and follow them.
 - `~/.claude/rules/general.md`
+- `~/.claude/rules/code.md`
 - `~/.claude/rules/python.md`
 
 ## Project Reading (context)

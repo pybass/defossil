@@ -1,23 +1,26 @@
 [project]
 name = "defossil"
-version = "0.0.10"
+version = "0.0.11"
 description = "Improve your English by reviewing your own chats with AI coding agents."
 readme = "README.md"
 authors = [{ name = "pybass" }]
 license = "MIT"
 license-files = ["LICENSE"]
-requires-python = ">=3.14"
+requires-python = ">=3.15"
 classifiers = [
+    "Development Status :: 3 - Alpha",
     "Environment :: Web Environment",
     "Intended Audience :: Developers",
-    "Programming Language :: Python :: 3.14",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Education",
 ]
 dependencies = [
-    "fastapi==0.142.2",  # == pin: nothing imports an app, upgrades are deliberate edits
+    "fastapi==0.147.0",  # == pin: nothing imports an app, upgrades are deliberate edits
     "jinja2==3.1.6",
     "markupsafe==3.0.4",
-    "pydantic==2.13.5",
+    "pydantic==2.14.1",
     "uvicorn==0.54.0",
 ]
 
@@ -29,28 +32,28 @@ Issues = "https://github.com/pybass/defossil/issues"
 defossil = "defossil.__main__:main"
 
 [build-system]
-requires = ["uv_build>=0.12,<0.13"]  # pinned: build backends live outside uv.lock
+requires = ["uv_build>=0.13,<0.14"]  # pinned: build backends live outside uv.lock
 build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
-    "ruff~=0.16.10",
+    "ruff~=0.17.1",
     "mypy~=2.4.0",
     "pytest~=9.1.1",
     "pytest-xdist~=3.8.0",
     "pip-audit~=2.10.1",
-    "pre-commit~=4.6.2",
+    "pre-commit~=4.7.0",
     "watchfiles~=1.3.0",  # justfile `dev` auto-restart
 ]
 
 [tool.uv]
-required-version = ">=0.11"  # refuse a uv too old for the index/publish semantics we rely on
+required-version = ">=0.13"
 publish-url = "https://upload.pypi.org/legacy/"
 check-url = "https://pypi.org/simple/"  # lets a failed release re-run: uploaded files are skipped
 
 [tool.ruff]
 line-length = 130
-target-version = "py314"
+target-version = "py315"
 
 [tool.ruff.lint]
 select = ["ALL"]
@@ -87,7 +90,7 @@ classmethod-decorators = ["pydantic.field_validator"]  # N805: cls is correct wi
 ignore-decorators = ["typing.override", "typing.overload"]  # the base class / overload stub carries the contract
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["ANN", "S", "SLF"]  # tests skip annotation, assert/security, and private-access rules
+"tests/**/*.py" = ["ANN", "S", "SLF"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -95,13 +98,13 @@ indent-style = "space"
 docstring-code-format = true
 
 [tool.mypy]
-python_version = "3.14"
+python_version = "3.15"
 strict = true
 warn_unreachable = true
 enable_error_code = ["redundant-expr", "possibly-undefined", "truthy-bool", "exhaustive-match", "unused-awaitable"]
 
 [[tool.mypy.overrides]]
-module = "tests.*"  # relaxed so pytest fixtures don't fight you
+module = "tests.*"
 disallow_untyped_defs = false
 disallow_incomplete_defs = false
 disallow_untyped_decorators = false
@@ -115,4 +118,4 @@ skip = "uv.lock,.git,.venv,.mypy_cache,.ruff_cache,.pytest_cache,*.min.js"
 testpaths = ["tests"]
 addopts = "-ra --strict-markers --strict-config --import-mode=importlib"
 xfail_strict = true
-filterwarnings = ["error"]  # warnings are failures; targeted ignores go after "error"
+filterwarnings = ["error"]  # targeted ignores go after "error"
