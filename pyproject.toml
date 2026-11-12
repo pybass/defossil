@@ -90,7 +90,7 @@ classmethod-decorators = ["pydantic.field_validator"]  # N805: cls is correct wi
 ignore-decorators = ["typing.override", "typing.overload"]  # the base class / overload stub carries the contract
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["ANN", "S", "SLF"]
+"tests/**/*.py" = ["S", "SLF"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -102,14 +102,6 @@ python_version = "3.15"
 strict = true
 warn_unreachable = true
 enable_error_code = ["redundant-expr", "possibly-undefined", "truthy-bool", "exhaustive-match", "unused-awaitable"]
-
-[[tool.mypy.overrides]]
-module = "tests.*"
-disallow_untyped_defs = false
-disallow_incomplete_defs = false
-disallow_untyped_decorators = false
-disallow_untyped_calls = false
-warn_unused_ignores = false
 
 [tool.codespell]
 skip = "uv.lock,.git,.venv,.mypy_cache,.ruff_cache,.pytest_cache,*.min.js"
