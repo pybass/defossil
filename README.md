@@ -1,6 +1,6 @@
 # defossil
 
-**Status: prototype.** No tests yet; anything can change without backward compatibility.
+**Status: prototype.** No tests yet, except the one that checks that the full schema and the migrations give the same structure; anything can change without backward compatibility.
 
 Improve your English by reviewing your own chats with AI coding agents. The name comes from "fossilized errors" — recurring mistakes that stick in a learner's language. You already write a lot of English when talking to agents like Claude Code and Codex. defossil collects those messages, reviews them with an LLM, and gives you two things:
 
@@ -20,7 +20,7 @@ Three background workers, one per step, each on its own 5-minute clock: the impo
 
 `web` → `Core` → feature service → `Db`. `Core` is a container and the lifecycle: it opens the database, builds one service per feature, starts them in order and stops them in reverse. A feature is one job, named after the record it owns: `message` (the archive and its sources), `correction`, `report` (with the chat under each report: its turns and the CLI session they resume), `setting`, and `ai` — every prompt the app sends, plus the `ai_calls` log of what each call cost. Every table has exactly one owner, and only the owner writes SQL against it. Features reach each other through `self.core.services.<other>`.
 
-The schema evolves through append-only migrations (`core/migrations.py`, tracked by `PRAGMA user_version`), so it can change without dropping data. Nothing is redone: a message is classified and reviewed once, corrections and reports only accumulate. The archive is the one thing the sources cannot give back (Claude Code deletes transcripts after ~30 days), and nothing drops it.
+`core/db/schema.py` holds the full current schema; a new database is made from it. Older databases are brought up by append-only migrations (`core/db/migrations.py`, tracked by `PRAGMA user_version`), so the schema can change without dropping data. Every schema change edits both files. Nothing is redone: a message is classified and reviewed once, corrections and reports only accumulate. The archive is the one thing the sources cannot give back (Claude Code deletes transcripts after ~30 days), and nothing drops it.
 
 ## Usage
 

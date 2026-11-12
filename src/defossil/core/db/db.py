@@ -1,6 +1,6 @@
 """SQLite storage: the connection and the migration runner.
 
-It runs no query of its own — a table's SQL belongs to its feature, and the schema lives in migrations.py.
+It runs no query of its own — a table's SQL belongs to its feature, and the schema lives in schema.py.
 """
 
 import sqlite3
@@ -9,14 +9,15 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 
-from defossil.core.migrations import MIGRATIONS
+from defossil.core.db.migrations import MIGRATIONS
+from defossil.core.db.schema import SCHEMA
 
 
 class Db:
     """The one connection every feature service runs its own SQL on."""
 
     def __init__(self, path: Path) -> None:
-        """Open the database and apply pending migrations; the directory must exist (Core makes it)."""
+        """Open the database and bring its schema to the latest version; the directory must exist (Core makes it)."""
         # autocommit=True gives every lone statement its own transaction, so a write is never left hanging in an
         # implicit one. check_same_thread=False because fastapi serves sync handlers from a threadpool, so a request
         # is not handled by the thread that opened this connection.
@@ -29,11 +30,14 @@ class Db:
         self.conn.close()
 
     def _migrate(self) -> None:
-        """Apply pending migrations, tracked via PRAGMA user_version."""
+        """Make a new database from the full schema, or apply pending migrations; PRAGMA user_version tracks the version."""
         version = int(self.conn.execute("PRAGMA user_version").fetchone()[0])
+        # The script and the version bump commit together: a crash midway rolls back cleanly, so a script is either
+        # fully applied and recorded, or not at all.
+        if version == 0:
+            self.conn.executescript(f"BEGIN;\n{SCHEMA}\nPRAGMA user_version = {len(MIGRATIONS)};\nCOMMIT;")
+            return
         for number, script in enumerate(MIGRATIONS[version:], start=version + 1):
-            # The script and the version bump commit together: a crash mid-migration rolls back cleanly, so a
-            # migration is either fully applied and recorded, or not at all.
             self.conn.executescript(f"BEGIN;\n{script}\nPRAGMA user_version = {number};\nCOMMIT;")
 
     @contextmanager

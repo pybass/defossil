@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from defossil.core.db import Db
+from defossil.core.db.db import Db
 from defossil.core.features.ai.service import AiService
 from defossil.core.features.correction.service import CorrectionService
 from defossil.core.features.message.service import MessageService

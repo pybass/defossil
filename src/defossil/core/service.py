@@ -2,7 +2,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:  # Core builds the services, so importing it for real here would close a cycle
     from defossil.core.core import Core
-    from defossil.core.db import Db
+    from defossil.core.db.db import Db
 
 
 class Service:
